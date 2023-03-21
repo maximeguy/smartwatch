@@ -1,11 +1,3 @@
-/* Blink Example
-
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
 #include <stdio.h>
 #include <math.h>
 #include <inttypes.h>
@@ -28,18 +20,10 @@
 #include "lis2mdl_reg.h"
 #include "SW_IMU_Driver.h"
 
-
-
-/* Littlevgl specific */
 #include "lvgl/lvgl.h"
 #include "lvgl_helpers.h"
 
 #include "images/bluetooth.c"
-
-/* Can use project configuration menu (idf.py menuconfig) to choose the GPIO to blink,
-   or you can edit the following line and set a number here.
-*/
-
 
 /*********************
  *      DEFINES
@@ -487,7 +471,7 @@ void app_main(void)
 	gpio_set_direction(BTN_GPIO, GPIO_MODE_INPUT);
 	gpio_set_intr_type(BTN_GPIO, GPIO_INTR_NEGEDGE);
 	gpio_install_isr_service(0);
-	gpio_isr_handler_add(GPIO_NUM_0, btn_isr_handler, (void*)GPIO_NUM_0);
+	gpio_isr_handler_add(BTN_GPIO, btn_isr_handler, (void*)GPIO_NUM_0);
 
 
 	gpio_reset_pin(4);
@@ -497,33 +481,33 @@ void app_main(void)
 
 
 	//UART Semaphore creation
-		UART_Jeton=xSemaphoreCreateBinary();
-		xSemaphoreGive(UART_Jeton);
-		//I2c0 Semaphore Creation
-		I2c_Jeton=xSemaphoreCreateBinary();
-		xSemaphoreGive(I2c_Jeton);
+	UART_Jeton=xSemaphoreCreateBinary();
+	xSemaphoreGive(UART_Jeton);
+	//I2c0 Semaphore Creation
+	I2c_Jeton=xSemaphoreCreateBinary();
+	xSemaphoreGive(I2c_Jeton);
 
-		SW_I2c_Master_Init(I2C_NUM_0,I2C_MASTER_SCL_IO,I2C_MASTER_SDA_IO);
-		Lsm6dso_dev_ctx = SW_Mems_Interface_Init(I2C_NUM_0,0); //0=>Lsm6dso
-		Lis2mdl_dev_ctx = SW_Mems_Interface_Init(I2C_NUM_0,1);//1=>Lis2mdl
-		SW_Lsm6dso6_Init_Config(Lsm6dso_dev_ctx);
-		SW_Lis2mdl_Init_Config(Lis2mdl_dev_ctx);
+	SW_I2c_Master_Init(I2C_NUM_0,I2C_MASTER_SCL_IO,I2C_MASTER_SDA_IO);
+	Lsm6dso_dev_ctx = SW_Mems_Interface_Init(I2C_NUM_0,0); //0=>Lsm6dso
+	Lis2mdl_dev_ctx = SW_Mems_Interface_Init(I2C_NUM_0,1);//1=>Lis2mdl
+	SW_Lsm6dso6_Init_Config(Lsm6dso_dev_ctx);
+	SW_Lis2mdl_Init_Config(Lis2mdl_dev_ctx);
 
-		xTaskCreate(StepCounter, "StepCounter", 10000, NULL, 1, &StepCounter_Handler);
-		vTaskSuspend(StepCounter_Handler);
-		xTaskCreate(Lsm6dso_TASK, "Lsm6dso_TASK", 10000, NULL, 1, &Lsm6dso_TASK_Handler);
-		vTaskSuspend(Lsm6dso_TASK_Handler);
+	xTaskCreate(StepCounter, "StepCounter", 10000, NULL, 1, &StepCounter_Handler);
+	vTaskSuspend(StepCounter_Handler);
+	xTaskCreate(Lsm6dso_TASK, "Lsm6dso_TASK", 10000, NULL, 1, &Lsm6dso_TASK_Handler);
+	vTaskSuspend(Lsm6dso_TASK_Handler);
 
-		xTaskCreate(LIS2MDL_TASK, "LIS2MDL_TASK", 10000, NULL, 1, &LIS2MDL_TASK_Handler);
-		vTaskSuspend(LIS2MDL_TASK_Handler);
-		/**************LSM6DSO_INT1 ISR / Wake-up Trigger *****************/
-		gpio_set_direction(LSM6DSO_INT1, GPIO_MODE_INPUT);
-		gpio_set_intr_type(LSM6DSO_INT1,GPIO_INTR_POSEDGE);
-		gpio_install_isr_service(0);
-		gpio_isr_handler_add(LSM6DSO_INT1, Inactivity_Activity_IRQ,NULL);
-		gpio_wakeup_enable(LSM6DSO_INT1, GPIO_INTR_HIGH_LEVEL);
-		esp_sleep_enable_gpio_wakeup();
-		/**************LSM6DSO_INT1 ISR / Wake-up Trigger *****************/
+	xTaskCreate(LIS2MDL_TASK, "LIS2MDL_TASK", 10000, NULL, 1, &LIS2MDL_TASK_Handler);
+	vTaskSuspend(LIS2MDL_TASK_Handler);
+	/**************LSM6DSO_INT1 ISR / Wake-up Trigger *****************/
+	gpio_set_direction(LSM6DSO_INT1, GPIO_MODE_INPUT);
+	gpio_set_intr_type(LSM6DSO_INT1,GPIO_INTR_POSEDGE);
+	gpio_install_isr_service(0);
+	gpio_isr_handler_add(LSM6DSO_INT1, Inactivity_Activity_IRQ,NULL);
+	gpio_wakeup_enable(LSM6DSO_INT1, GPIO_INTR_HIGH_LEVEL);
+	esp_sleep_enable_gpio_wakeup();
+	/**************LSM6DSO_INT1 ISR / Wake-up Trigger *****************/
 
 
 
