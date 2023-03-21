@@ -137,6 +137,27 @@ void SW_Lis2mdl_Init_Config(stmdev_ctx_t dev_ctx){
 
 }
 
+/**
+ * @brief Determines the north direction relative to the Lis2mdl sensor
+ *
+ * @return North direction in degrees
+ */
+double SW_North_Dir(int16_t* data_raw_magnetic){
+	float magnetic_mG[3];
+	double norm_x,norm_y,angle,angle_degree;
+	magnetic_mG[0] = lis2mdl_from_lsb_to_mgauss( data_raw_magnetic[0]);
+	magnetic_mG[1] = lis2mdl_from_lsb_to_mgauss( data_raw_magnetic[1]);
+	magnetic_mG[2] = lis2mdl_from_lsb_to_mgauss( data_raw_magnetic[2]);
+	norm_x=magnetic_mG[0]/sqrt(magnetic_mG[0]*magnetic_mG[0] + magnetic_mG[1]*magnetic_mG[1]+magnetic_mG[2]*magnetic_mG[2]); //Normalize
+	norm_y=magnetic_mG[1]/sqrt(magnetic_mG[0]*magnetic_mG[0] + magnetic_mG[1]*magnetic_mG[1]+magnetic_mG[2]*magnetic_mG[2]); //Normalize
+	angle = atan2(norm_x,norm_y);
+	angle_degree = angle*(180/M_PI)-1.1333; // 1.1333 poitiers-declination
+	return angle_degree;
+}
+
+
+
+
 
 int32_t Lsm6dso_platform_write(i2c_port_t handle, uint8_t reg, const uint8_t *bufp,
                               uint16_t len)

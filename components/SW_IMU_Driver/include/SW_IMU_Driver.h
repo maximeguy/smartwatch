@@ -29,9 +29,6 @@
  */
 stmdev_ctx_t SW_Mems_Interface_Init(uint8_t handle,uint8_t Mems_type);
 
-
-
-
 /**
  * @brief Initializes and configures the LSM6DSO sensor.
  *
@@ -39,9 +36,25 @@ stmdev_ctx_t SW_Mems_Interface_Init(uint8_t handle,uint8_t Mems_type);
  *
  * @note Enables interrupt generation on the INT1 pin for (Activity/Inactivity)
  */
+
 void SW_Lsm6dso6_Init_Config(stmdev_ctx_t dev_ctx);
+/**
+ * @brief Initializes and configures the Lis2mdl sensor.
+ *
+ * @param dev_ctx The device context for communication with the Lis2mdl sensor.
+ *
+ */
 
 void SW_Lis2mdl_Init_Config(stmdev_ctx_t dev_ctx);
+
+
+
+/**
+ * @brief Determines the north direction relative to the Lis2mdl sensor
+ *
+ * @return North direction in degrees
+ */
+double SW_North_Dir(int16_t* data_raw_magnetic);
 
 
 int32_t Lsm6dso_platform_write(i2c_port_t handle, uint8_t reg, const uint8_t *bufp,

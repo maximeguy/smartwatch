@@ -45,7 +45,9 @@
 #define deg_to_rad(angleInDegrees) ((angleInDegrees) * M_PI / 180.0)
 #define rad_to_deg(angleInRadians) ((angleInRadians) * 180.0 / M_PI)
 
-
+/* The combined length of the queues and binary semaphorse that will be
+added to the queue set. */
+#define COMBINED_LENGTH 18
 /***************Thread Safe Print****************/
 esp_err_t SW_SafePrint(SemaphoreHandle_t* Jeton,const char* fmt, ...);
 /***************Thread Safe Print****************/
@@ -69,7 +71,7 @@ SemaphoreHandle_t gui_smphr;
 SemaphoreHandle_t btn_smphr;
 SemaphoreHandle_t clock_smphr;
 QueueSetHandle_t smphr_qs;
-
+QueueHandle_t StepsQ , WeatherQ ,North_DirQ;
 /**
  * @note Use SW_SafePrint for thread safe UART communication
  */
@@ -91,12 +93,19 @@ lv_obj_t * steps_lbl;
 
 stmdev_ctx_t Lsm6dso_dev_ctx;
 stmdev_ctx_t Lis2mdl_dev_ctx;
-/************LIS2MDL Variables*********/
-static int16_t data_raw_magnetic[3];
-static int16_t data_raw_temperature;
-static float magnetic_mG[3];
-static float temperature_degC;
-/************LIS2MDL Variables*********/
+/************LIS2MDL / LSM6DSO Variables*********/
+typedef struct Steps {
+	uint16_t CurrentSteps; //Real time Steps
+	uint16_t DailySteps; // Steps/24h
+} Steps;
+
+typedef struct Weather {
+	float Temperature; //Real time Steps
+	float Pressure; // Steps/24h
+	float Humdity;
+} Weather;
+
+/************LIS2MDL / LSM6DSO Variables*********/
 
 uint8_t current_screen = 0;
 // Don't forget to free memory
@@ -223,7 +232,8 @@ void Lsm6dso_TASK(void * pvParameters ){
 }
 
 void StepCounter(void * pvParameters ){
-	uint16_t steps;
+
+	Steps steps;
 	lsm6dso_emb_sens_t emb_sens;
 	lsm6dso_steps_reset(&Lsm6dso_dev_ctx);
 	/* Enable pedometer */
@@ -232,8 +242,10 @@ void StepCounter(void * pvParameters ){
 	emb_sens.step_adv = PROPERTY_ENABLE;
 	lsm6dso_embedded_sens_set(&Lsm6dso_dev_ctx, &emb_sens);
 	for(;;){
-		lsm6dso_number_of_steps_get(&Lsm6dso_dev_ctx, &steps); //step Counting
-		SW_SafePrint(&UART_Jeton,"steps :%d\r\n", steps);
+		lsm6dso_number_of_steps_get(&Lsm6dso_dev_ctx, &steps.CurrentSteps); //step Counting
+		xQueueSend(StepsQ,&steps,100)==pdTRUE?SW_SafePrint(&UART_Jeton,"steps :%d\r\n", steps.CurrentSteps)
+				:SW_SafePrint(&UART_Jeton,"StepsQ Not Sent\n\r");
+
 		vTaskDelay(1000/portTICK_PERIOD_MS);
 	}
 }
@@ -241,7 +253,8 @@ void StepCounter(void * pvParameters ){
 
 void LIS2MDL_TASK(void * pvParameters){
 	uint8_t reg;
-	double norm_x,norm_y,angle,angle_degree;
+	int16_t data_raw_magnetic[3];
+	double angle_degree;
 	for(;;){
 		/* Read output only if new value is available */
 		lis2mdl_mag_data_ready_get(&Lis2mdl_dev_ctx, &reg);
@@ -249,23 +262,9 @@ void LIS2MDL_TASK(void * pvParameters){
 			/* Read magnetic field data */
 			memset(data_raw_magnetic, 0x00, 3 * sizeof(int16_t));
 			lis2mdl_magnetic_raw_get(&Lis2mdl_dev_ctx, data_raw_magnetic);
-			magnetic_mG[0] = lis2mdl_from_lsb_to_mgauss( data_raw_magnetic[0]);
-			magnetic_mG[1] = lis2mdl_from_lsb_to_mgauss( data_raw_magnetic[1]);
-			magnetic_mG[2] = lis2mdl_from_lsb_to_mgauss( data_raw_magnetic[2]);
-			//SW_SafePrint(&UART_Jeton,"Mag field [mG]:%4.2f\t%4.2f\t%4.2f\r\n",magnetic_mG[0], magnetic_mG[1], magnetic_mG[2]);
-			 norm_x=magnetic_mG[0]/sqrt(magnetic_mG[0]*magnetic_mG[0] + magnetic_mG[1]*magnetic_mG[1]+magnetic_mG[2]*magnetic_mG[2]);
-			 norm_y=magnetic_mG[1]/sqrt(magnetic_mG[0]*magnetic_mG[0] + magnetic_mG[1]*magnetic_mG[1]+magnetic_mG[2]*magnetic_mG[2]);
-			 angle = atan2(norm_x,norm_y);
-			 angle_degree = angle*(180/M_PI)-1.1333; // 1.1333 poitiers-declination
-
-			// print the result
-			SW_SafePrint(&UART_Jeton, "The North direction relative to the sensor: %5.1f deg\r\n", angle_degree);
-			/* Read temperature data */
-			/*
-			memset(&data_raw_temperature, 0x00, sizeof(int16_t));
-			lis2mdl_temperature_raw_get(&Lis2mdl_dev_ctx, &data_raw_temperature);
-			temperature_degC =lis2mdl_from_lsb_to_celsius(data_raw_temperature);
-			SW_SafePrint(&UART_Jeton,"Temperature [degC]:%6.2f\r\n",temperature_degC);*/
+			angle_degree= SW_North_Dir(data_raw_magnetic);
+			xQueueSend(North_DirQ,&angle_degree,100)==pdTRUE?SW_SafePrint(&UART_Jeton, "The North direction relative to the sensor: %5.1f deg\r\n", angle_degree)
+					:SW_SafePrint(&UART_Jeton,"North_DirQ Not Sent\n\r");
 		}
 		vTaskDelay(2000/portTICK_PERIOD_MS);
 	}
@@ -425,7 +424,8 @@ void state_machine()
 {
 	uint8_t blink_state = 1;
 	uint8_t display_state = 0;
-
+	double North_Dir=0.0;
+	Steps steps;
 	QueueSetMemberHandle_t received_smphr;
 
 	vTaskResume(blink_task_handle);
@@ -433,27 +433,31 @@ void state_machine()
 	while(1){
 		received_smphr = xQueueSelectFromSet(smphr_qs, portMAX_DELAY);
 		if (received_smphr == btn_smphr){
-			ESP_LOGE(TAG, "BOOT button toggle : change screen");
+			//ESP_LOGE(TAG, "BOOT button toggle : change screen");
 			xSemaphoreTake(btn_smphr,0);
 			current_screen++;
 			if (current_screen >= N_SCREENS) current_screen = 0;
-			ESP_LOGI(TAG, "Current screen : %d", current_screen);
+			//ESP_LOGI(TAG, "Current screen : %d", current_screen);
 			lv_scr_load(screens[current_screen]);
 			blink_state = !blink_state;
 			if(blink_state == 1)vTaskResume(blink_task_handle);
 			else vTaskSuspend(blink_task_handle);
 		}
 		else if (received_smphr == clock_smphr){
-			ESP_LOGI(TAG, "Tick (second).");
+			//ESP_LOGI(TAG, "Tick (second).");
 			xSemaphoreTake(clock_smphr,0);
 			display_state = !display_state;
 			if(display_state == 1)lv_label_set_text(time_lbl, "10:46");
 			else lv_label_set_text(time_lbl, "10 46");
 		}
 		else if (received_smphr == gui_smphr){
-			ESP_LOGI(TAG, "Display update.");
+			//ESP_LOGI(TAG, "Display update.");
 			xSemaphoreTake(gui_smphr,0);
 			lv_task_handler();
+		}else if (received_smphr == North_DirQ){
+			xQueueReceive(North_DirQ, &North_Dir, 100);
+		}else if(received_smphr == StepsQ){
+			xQueueReceive(StepsQ, &steps, 100);
 		}
 	}
 
@@ -461,18 +465,11 @@ void state_machine()
 
 void app_main(void)
 {
-    /* Configure the IOMUX register for pad BLINK_GPIO (some pads are
-       muxed to GPIO on reset already, but some default to other
-       functions and need to be switched to GPIO. Consult the
-       Technical Reference for a list of pads and their default
-       functions.)
-    */
 	gpio_reset_pin(BTN_GPIO);
 	gpio_set_direction(BTN_GPIO, GPIO_MODE_INPUT);
 	gpio_set_intr_type(BTN_GPIO, GPIO_INTR_NEGEDGE);
 	gpio_install_isr_service(0);
 	gpio_isr_handler_add(BTN_GPIO, btn_isr_handler, (void*)GPIO_NUM_0);
-
 
 	gpio_reset_pin(4);
 	gpio_set_direction(4, GPIO_MODE_OUTPUT);
@@ -495,7 +492,7 @@ void app_main(void)
 
 	xTaskCreate(StepCounter, "StepCounter", 10000, NULL, 1, &StepCounter_Handler);
 	vTaskSuspend(StepCounter_Handler);
-	xTaskCreate(Lsm6dso_TASK, "Lsm6dso_TASK", 10000, NULL, 1, &Lsm6dso_TASK_Handler);
+	xTaskCreate(Lsm6dso_TASK, "Lsm6dso_TASK", 10000, NULL, 2, &Lsm6dso_TASK_Handler);
 	vTaskSuspend(Lsm6dso_TASK_Handler);
 
 	xTaskCreate(LIS2MDL_TASK, "LIS2MDL_TASK", 10000, NULL, 1, &LIS2MDL_TASK_Handler);
@@ -511,12 +508,18 @@ void app_main(void)
 
 
 
+	StepsQ = xQueueCreate(5, sizeof(Steps));
+	WeatherQ = xQueueCreate(5, sizeof(Weather));
+	North_DirQ = xQueueCreate(5, sizeof(double));
 
 	btn_smphr = xSemaphoreCreateBinary();
 	clock_smphr = xSemaphoreCreateBinary();
 	gui_smphr = xSemaphoreCreateBinary();
 
-    smphr_qs = xQueueCreateSet(2);
+    smphr_qs = xQueueCreateSet(COMBINED_LENGTH); //Must update the COMBINED_LENGTH if new Q or Sem are added
+    xQueueAddToSet(StepsQ,smphr_qs);
+    xQueueAddToSet(WeatherQ,smphr_qs);
+    xQueueAddToSet(North_DirQ,smphr_qs);
     xQueueAddToSet(btn_smphr,smphr_qs);
     xQueueAddToSet(clock_smphr,smphr_qs);
     xQueueAddToSet(gui_smphr,smphr_qs);
@@ -531,9 +534,9 @@ void app_main(void)
     xTaskCreate(state_machine, "state_machine", 10000, NULL, 6, &state_machine_handle);
 
     init_clock_timer(1000 * 1000);
-    init_timer_display(50 * 1000);
+    init_timer_display(5 * 1000);
 
-    ESP_LOGI(TAG, "End app_main");
+   // ESP_LOGI(TAG, "End app_main");
 }
 
 
