@@ -2,53 +2,37 @@
 
 #include "SW_ESP_NTP.h"
 
-
 void NTP_Init()
 {
 
-    sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    sntp_setservername(0, "pool.ntp.org");
-    //sntp_set_time_sync_notification_cb(time_sync_notification_cb);
-    sntp_init();
-
+		setenv("TZ", "CET-1CEST,M3.5.0/02,M10.5.0/03", 1); //France Time zone
+		tzset(); // update C library runtime data for the new timezone.
+		//sntp_set_sync_interval(15000); //testing sync time every 15 seconds
+		sntp_set_time_sync_notification_cb(time_sync_notification_cb);
+		sntp_setoperatingmode(SNTP_OPMODE_POLL);
+		sntp_setservername(0, "time.google.com");
+		sntp_init();
+		int retry = 0;
+		const int retry_count = 10;
+		while (sntp_get_sync_status() == SNTP_SYNC_STATUS_RESET && ++retry < retry_count) {
+			printf("Waiting for system time to be set... (%d/%d)\n", retry, retry_count);
+			vTaskDelay(2000 / portTICK_PERIOD_MS);
+		}
 }
 
-void NTP_GetTime(void)
+struct tm NTP_GetTime()
 {
-    NTP_Init();
-    // Attendre que la synchronisation NTP soit effectuée
-    int retry = 0;
-    const int retry_max = 5;
-    while (sntp_get_sync_status() == SNTP_SYNC_STATUS_RESET && ++retry < retry_max) {
-        printf("Waiting for NTP server connection...\n HELLOOOO");
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
-    }
-
-    // Si la synchronisation a échoué, récupérer l'heure système
-    time_t now;
-    struct tm timeinfo, *temps;
-    if (retry == retry_max) {
-        printf("NTP server non atteingnable. on utilise le local time.");//Le serveur n'est pas joignable
-        time(&now);
-        localtime_r(&now, &timeinfo);
-    } else {
-        time(&now);
-        setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
-        tzset();
-        localtime_r(&now, &timeinfo);
-    }
-
-    // Afficher l'heure pour VERIFIFCATION!!!!
-    printf("Le temps est heure %d:%02d:%02d\n", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-
-
+	time_t now = 0;
+	struct tm timeinfo = { 0 };
+	time(&now); //retrieves the current time in seconds since the Epoch (January 1st, 1970, 00:00:00 UTC)
+	localtime_r(&now, &timeinfo); //  converts the time in &now to a local time
+	return timeinfo;
 }
 
 //TIME TM DEJA INSTALLER DANS ESPRESSIF!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-void time_sync_notification_cb(struct timeval *tv)
+void time_sync_notification_cb()
 {
-
-
+	SW_SafePrint(&UART_Jeton,"Here We Synchronize external RTC\n\r");
 }
 
 

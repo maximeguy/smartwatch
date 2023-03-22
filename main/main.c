@@ -12,9 +12,8 @@
 #include "esp_timer.h"
 #include "esp_sleep.h"
 #include "esp_system.h"
-#include "esp_log.h"
 #include "sdkconfig.h"
-
+#include "esp_wifi.h"
 #include "SW_I2c_Driver.h"
 #include "lsm6dso_reg.h"
 #include "lis2mdl_reg.h"
@@ -48,6 +47,10 @@
 /* The combined length of the queues and binary semaphorse that will be
 added to the queue set. */
 #define COMBINED_LENGTH 18
+
+#define EXAMPLE_ESP_WIFI_SSID      "HUAWEI Y6p"
+#define EXAMPLE_ESP_WIFI_PASS      "majdi123"
+
 /***************Thread Safe Print****************/
 esp_err_t SW_SafePrint(SemaphoreHandle_t* Jeton,const char* fmt, ...);
 /***************Thread Safe Print****************/
@@ -60,6 +63,8 @@ static void blink_task(void *arg);
 static void state_machine();
 static void create_lvgl_gui(void);
 
+
+void Wifi_Init();
 /**********************
  *  HANDLERS
  **********************/
@@ -318,7 +323,7 @@ static void create_lvgl_gui(void)
 		float y = sin(rad)*compass_radius;
 		float xx = cos(rad)*(compass_radius+compass_tick_len);
 		float yy = sin(rad)*(compass_radius+compass_tick_len);
-		ESP_LOGI(TAG, "deg : %d°; rad : %f; x : %f; y : %f", i*10, rad, x, y);
+		//ESP_LOGI(TAG, "deg : %d°; rad : %f; x : %f; y : %f", i*10, rad, x, y);
 		lv_point_t  compass_tick[] = {{x, y}, {xx, yy}};
 		lv_obj_t * line1= lv_line_create(compass_screen, NULL);
 		lv_line_set_points(line1, compass_tick, 5);     /*Set the points*/
@@ -561,6 +566,28 @@ esp_err_t SW_SafePrint(SemaphoreHandle_t* Jeton,const char* fmt, ...){
 	vprintf(fmt, arg);
 	va_end(arg);
 	return !(xSemaphoreGive(*Jeton)); //return 0 if ok
+}
+
+
+void Wifi_Init(){
+	ESP_ERROR_CHECK(esp_netif_init());
+	ESP_ERROR_CHECK(esp_event_loop_create_default());
+	esp_netif_create_default_wifi_sta();
+	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT() ;
+	esp_wifi_init(&cfg);
+	esp_wifi_set_mode(WIFI_MODE_STA);
+	wifi_config_t wifi_config = {
+			.sta = {
+					.ssid = EXAMPLE_ESP_WIFI_SSID,
+					.password = EXAMPLE_ESP_WIFI_PASS,
+					.threshold.authmode = WIFI_AUTH_WPA2_PSK,
+					.sae_pwe_h2e = WPA3_SAE_PWE_BOTH,
+			},
+	};
+	esp_wifi_set_config(WIFI_IF_STA,&wifi_config);
+	esp_err_t result = esp_wifi_start();
+	if(!result)
+		esp_wifi_connect();
 }
 
 static void lv_tick_task(void *arg) {
