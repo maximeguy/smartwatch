@@ -102,7 +102,12 @@ void SW_Lsm6dso6_Init_Config(stmdev_ctx_t dev_ctx){
 
 
 
-
+/**
+ * @brief Initializes and configures the Lis2mdl sensor.
+ *
+ * @param dev_ctx The device context for communication with the Lis2mdl sensor.
+ *
+ */
 void SW_Lis2mdl_Init_Config(stmdev_ctx_t dev_ctx){
 	  /* Wait sensor boot time */
 	  platform_delay(10);
@@ -136,6 +141,32 @@ void SW_Lis2mdl_Init_Config(stmdev_ctx_t dev_ctx){
 	  lis2mdl_drdy_on_pin_set(&dev_ctx, PROPERTY_ENABLE);
 
 }
+
+
+
+
+/**
+ * @brief Initializes and configures the Hts221 sensor.
+ *
+ * @param dev_ctx The device context for communication with the Hts221 sensor.
+ *
+ */
+
+void SW_Hts221_Init_Config(stmdev_ctx_t dev_ctx){
+
+}
+
+/**
+ * @brief Initializes and configures the Lps22hh sensor.
+ *
+ * @param dev_ctx The device context for communication with the Lps22hh sensor.
+ *
+ */
+
+void SW_Lps22hh_Init_Config(stmdev_ctx_t dev_ctx){
+
+}
+
 
 /**
  * @brief Determines the north direction relative to the Lis2mdl sensor

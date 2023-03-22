@@ -17,6 +17,8 @@
 #include "SW_I2c_Driver.h"
 #include "lsm6dso_reg.h"
 #include "lis2mdl_reg.h"
+#include "lps22hh_reg.h"
+#include "hts221_reg.h"
 #include "SW_IMU_Driver.h"
 
 #include "lvgl/lvgl.h"
