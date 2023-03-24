@@ -38,8 +38,8 @@
 #define N_SCREENS 3
 
 /********I2c Specific*********/
-#define I2C_MASTER_SCL_IO 19
-#define I2C_MASTER_SDA_IO 18
+#define I2C_MASTER_SCL_IO 22//19
+#define I2C_MASTER_SDA_IO 21//18
 #define LSM6DSO_INT1 25 //GPIO25 => RTC_GPIO6
 /********I2c Specific*********/
 
