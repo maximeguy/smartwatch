@@ -5,12 +5,12 @@
 void NTP_Init()
 {
 
-		setenv("TZ", "CET-1CEST,M3.5.0/02,M10.5.0/03", 1); //France Time zone
+		setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1); //France Time zone
 		tzset(); // update C library runtime data for the new timezone.
 		//sntp_set_sync_interval(15000); //testing sync time every 15 seconds
 		sntp_set_time_sync_notification_cb(time_sync_notification_cb);
 		sntp_setoperatingmode(SNTP_OPMODE_POLL);
-		sntp_setservername(0, "time.google.com");
+		sntp_setservername(0, "pool.ntp.org");
 		sntp_init();
 		int retry = 0;
 		const int retry_count = 10;

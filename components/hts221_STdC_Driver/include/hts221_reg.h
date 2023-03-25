@@ -121,7 +121,7 @@ typedef struct
   /** Component optional fields **/
   stmdev_mdelay_ptr   mdelay;
   /** Customizable optional pointer **/
-  void *handle;
+ uint8_t handle;
 } stmdev_ctx_t;
 
 /**

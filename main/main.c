@@ -14,13 +14,9 @@
 #include "esp_system.h"
 #include "sdkconfig.h"
 #include "esp_wifi.h"
-#include "SW_I2c_Driver.h"
-#include "lsm6dso_reg.h"
-#include "lis2mdl_reg.h"
-#include "lps22hh_reg.h"
-#include "hts221_reg.h"
+#include "SW_ESP_NTP.h"
 #include "SW_IMU_Driver.h"
-
+#include "nvs_flash.h"
 #include "lvgl/lvgl.h"
 #include "lvgl_helpers.h"
 
@@ -76,13 +72,14 @@ static void create_screen(uint8_t screen_id);
 
 
 void Wifi_Init();
+
 /**********************
  *  HANDLERS
  **********************/
 TaskHandle_t blink_task_handle = NULL;
 TaskHandle_t state_machine_handle = NULL;
 TaskHandle_t Lsm6dso_TASK_Handler ,StepCounter_Handler ;
-TaskHandle_t LIS2MDL_TASK_Handler;
+TaskHandle_t LIS2MDL_TASK_Handler,Weather_TASK_Handler;
 SemaphoreHandle_t gui_smphr;
 SemaphoreHandle_t btn_smphr;
 SemaphoreHandle_t clock_smphr;
@@ -109,17 +106,13 @@ lv_obj_t * steps_lbl;
 
 stmdev_ctx_t Lsm6dso_dev_ctx;
 stmdev_ctx_t Lis2mdl_dev_ctx;
+stmdev_ctx_t hts221_dev_ctx;
+stmdev_ctx_t lps22hh_dev_ctx;
 /************LIS2MDL / LSM6DSO Variables*********/
 typedef struct Steps {
 	uint16_t CurrentSteps; //Real time Steps
 	uint16_t DailySteps; // Steps/24h
 } Steps;
-
-typedef struct Weather {
-	float Temperature; //Real time Steps
-	float Pressure; // Steps/24h
-	float Humdity;
-} Weather;
 
 /************LIS2MDL / LSM6DSO Variables*********/
 
@@ -269,7 +262,7 @@ void StepCounter(void * pvParameters ){
 		xQueueSend(StepsQ,&steps,100)==pdTRUE?SW_SafePrint(&UART_Jeton,"steps :%d\r\n", steps.CurrentSteps)
 				:SW_SafePrint(&UART_Jeton,"StepsQ Not Sent\n\r");
 
-		vTaskDelay(1000/portTICK_PERIOD_MS);
+		vTaskDelay(500/portTICK_PERIOD_MS);
 	}
 }
 
@@ -293,6 +286,18 @@ void LIS2MDL_TASK(void * pvParameters){
 		vTaskDelay(2000/portTICK_PERIOD_MS);
 	}
 }
+
+
+void Weather_TASK(void * pvParameters){
+Weather weather;
+	for(;;){
+		weather=SW_Get_Weather(hts221_dev_ctx, lps22hh_dev_ctx);
+		xQueueSend(WeatherQ,&weather,100)==pdTRUE?SW_SafePrint(&UART_Jeton, "Temp : %5.1f Hum : %5.1f Press : %5.1f\r\n", weather.Temperature,weather.Humdity,weather.Pressure)
+				:SW_SafePrint(&UART_Jeton,"WeatherQ Not Sent\n\r");
+		vTaskDelay(3000/portTICK_PERIOD_MS);
+	}
+}
+
 
 void create_screen(uint8_t screen_id){
 		/*********************
@@ -666,6 +671,7 @@ void state_machine()
 	uint8_t display_state = 0;
 	double North_Dir=0.0;
 	Steps steps;
+	Weather weather__;
 	QueueSetMemberHandle_t received_smphr;
 
 	//vTaskResume(blink_task_handle);
@@ -707,6 +713,8 @@ void state_machine()
 			}
 		}else if(received_smphr == StepsQ){
 			xQueueReceive(StepsQ, &steps, 100);
+		}else if(received_smphr ==WeatherQ){
+			xQueueReceive(WeatherQ, &weather__, 100);
 		}
 	}
 
@@ -714,7 +722,23 @@ void state_machine()
 
 void app_main(void)
 {
+	/******Checking Flash Mem***************/
+	esp_err_t ret = nvs_flash_init();
+	if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+		ESP_ERROR_CHECK(nvs_flash_erase());
+		ret = nvs_flash_init();
+	}
+	ESP_ERROR_CHECK(ret);
+	/******Checking Flash Mem***************/
 
+	/**********Thread Safe Peripherals*********/
+	//UART Semaphore creation
+	UART_Jeton=xSemaphoreCreateBinary();
+	xSemaphoreGive(UART_Jeton);
+	//I2c0 Semaphore Creation
+	I2c_Jeton=xSemaphoreCreateBinary();
+	xSemaphoreGive(I2c_Jeton);
+	/**********Thread Safe Peripherals*********/
 	c_a = lv_color_make(80, 97, 191);
 	c_b = lv_color_make(95, 114, 217);
 	c_c = lv_color_make(148, 162, 242);
@@ -728,35 +752,35 @@ void app_main(void)
 	gpio_set_direction(4, GPIO_MODE_OUTPUT);
 	gpio_set_level(4, 0);
 
-
-
-	//UART Semaphore creation
-	UART_Jeton=xSemaphoreCreateBinary();
-	xSemaphoreGive(UART_Jeton);
-	//I2c0 Semaphore Creation
-	I2c_Jeton=xSemaphoreCreateBinary();
-	xSemaphoreGive(I2c_Jeton);
-
 	SW_I2c_Master_Init(I2C_NUM_0,I2C_MASTER_SCL_IO,I2C_MASTER_SDA_IO);
 	Lsm6dso_dev_ctx = SW_Mems_Interface_Init(I2C_NUM_0,0); //0=>Lsm6dso
-	Lis2mdl_dev_ctx = SW_Mems_Interface_Init(I2C_NUM_0,1);//1=>Lis2mdl
-	//SW_Lsm6dso6_Init_Config(Lsm6dso_dev_ctx);
+	Lis2mdl_dev_ctx = SW_Mems_Interface_Init(I2C_NUM_0,1); //1=>Lis2mdl
+	lps22hh_dev_ctx = SW_Mems_Interface_Init(I2C_NUM_0,2); //2=>lps22hh
+	hts221_dev_ctx=   SW_Mems_Interface_Init(I2C_NUM_0,3); //3=>hts221
+	SW_Lsm6dso6_Init_Config(Lsm6dso_dev_ctx);
 	SW_Lis2mdl_Init_Config(Lis2mdl_dev_ctx);
+	SW_Lps22hh_Init_Config(lps22hh_dev_ctx);
+	SW_Hts221_Init_Config(hts221_dev_ctx);
 
+	Wifi_Init();
+	NTP_Init();
+	vTaskDelay(2000/portTICK_PERIOD_MS);
 	xTaskCreate(StepCounter, "StepCounter", 10000, NULL, 1, &StepCounter_Handler);
 	vTaskSuspend(StepCounter_Handler);
 	xTaskCreate(Lsm6dso_TASK, "Lsm6dso_TASK", 10000, NULL, 2, &Lsm6dso_TASK_Handler);
-	vTaskSuspend(Lsm6dso_TASK_Handler);
+	//vTaskSuspend(Lsm6dso_TASK_Handler);
 	xTaskCreate(LIS2MDL_TASK, "LIS2MDL_TASK", 10000, NULL, 1, &LIS2MDL_TASK_Handler);
-	vTaskSuspend(LIS2MDL_TASK_Handler);
+	//vTaskSuspend(LIS2MDL_TASK_Handler);
+	xTaskCreate(Weather_TASK, "Weather_TASK", 10000, NULL, 1, &Weather_TASK_Handler);
 
 	/**************LSM6DSO_INT1 ISR / Wake-up Trigger *****************/
-//	gpio_set_direction(LSM6DSO_INT1, GPIO_MODE_INPUT);
-//	gpio_set_intr_type(LSM6DSO_INT1,GPIO_INTR_POSEDGE);
-//	gpio_install_isr_service(0);
-//	//gpio_isr_handler_add(LSM6DSO_INT1, Inactivity_Activity_IRQ,NULL);
-//	gpio_wakeup_enable(LSM6DSO_INT1, GPIO_INTR_HIGH_LEVEL);
-//	esp_sleep_enable_gpio_wakeup();
+	gpio_set_direction(LSM6DSO_INT1, GPIO_MODE_INPUT);
+	gpio_set_intr_type(LSM6DSO_INT1,GPIO_INTR_POSEDGE);
+	gpio_install_isr_service(0);
+	gpio_isr_handler_add(LSM6DSO_INT1, Inactivity_Activity_IRQ,NULL);
+	gpio_wakeup_enable(LSM6DSO_INT1, GPIO_INTR_HIGH_LEVEL);
+	gpio_wakeup_enable(BTN_GPIO, GPIO_INTR_LOW_LEVEL);
+	esp_sleep_enable_gpio_wakeup();
 	/**************LSM6DSO_INT1 ISR / Wake-up Trigger *****************/
 
 
@@ -787,7 +811,7 @@ void app_main(void)
     xTaskCreate(state_machine, "state_machine", 10000, NULL, 6, &state_machine_handle);
 
     init_clock_timer(1000 * 1000);
-    init_timer_display(500 * 1000);
+    init_timer_display(50 * 1000);
 }
 
 
