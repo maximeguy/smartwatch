@@ -55,8 +55,11 @@
 added to the queue set. */
 #define COMBINED_LENGTH 18
 
-#define EXAMPLE_ESP_WIFI_SSID      "HUAWEI Y6p"
-#define EXAMPLE_ESP_WIFI_PASS      "majdi123"
+//#define EXAMPLE_ESP_WIFI_SSID      "HUAWEI Y6p"
+//#define EXAMPLE_ESP_WIFI_PASS      "majdi123"
+
+#define EXAMPLE_ESP_WIFI_SSID      "MG-Pxl"
+#define EXAMPLE_ESP_WIFI_PASS      "87654321"
 
 /***************Thread Safe Print****************/
 esp_err_t SW_SafePrint(SemaphoreHandle_t* Jeton,const char* fmt, ...);
@@ -779,7 +782,7 @@ void app_main(void)
 	gpio_install_isr_service(0);
 	gpio_isr_handler_add(LSM6DSO_INT1, Inactivity_Activity_IRQ,NULL);
 	gpio_wakeup_enable(LSM6DSO_INT1, GPIO_INTR_HIGH_LEVEL);
-	gpio_wakeup_enable(BTN_GPIO, GPIO_INTR_LOW_LEVEL);
+	gpio_wakeup_enable(BTN_GPIO, GPIO_INTR_NEGEDGE);
 	esp_sleep_enable_gpio_wakeup();
 	/**************LSM6DSO_INT1 ISR / Wake-up Trigger *****************/
 
