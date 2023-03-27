@@ -43,8 +43,8 @@
 #define COMPASS_RADIUS 70
 
 /********I2c Specific*********/
-#define I2C_MASTER_SCL_IO 22//19
-#define I2C_MASTER_SDA_IO 21//18
+#define I2C_MASTER_SCL_IO 26//19
+#define I2C_MASTER_SDA_IO 2//18
 #define LSM6DSO_INT1 25 //GPIO25 => RTC_GPIO6
 /********I2c Specific*********/
 
@@ -126,6 +126,12 @@ lv_obj_t * main_screen;
 lv_obj_t * compass_screen;
 lv_obj_t * weather_screen;
 lv_obj_t * ellipse_img;
+lv_obj_t * compass_lbl;
+lv_obj_t * temp_lbl;
+lv_obj_t * hum_lbl;
+lv_obj_t * press_lbl;
+
+char * str_buf;
 static lv_color_t c_a;
 static lv_color_t c_b;
 static lv_color_t c_c;
@@ -301,6 +307,12 @@ Weather weather;
 	}
 }
 
+char * num_to_string(int num, char * suffix){
+		sprintf(str_buf, "%d", num);
+		strcat(str_buf, suffix);
+	    return str_buf;
+}
+
 
 void create_screen(uint8_t screen_id){
 		/*********************
@@ -366,9 +378,9 @@ void create_screen(uint8_t screen_id){
 
 		lv_obj_t * compass_screen = lv_obj_create(NULL, NULL);
 
-		time_lbl =  lv_label_create(compass_screen, NULL);
-		lv_label_set_text(time_lbl, "10:46");
-		lv_obj_align(time_lbl, NULL, LV_ALIGN_CENTER, 0, -105);
+		lv_obj_t * compass_time_lbl =  lv_label_create(compass_screen, NULL);
+		lv_label_set_text(compass_time_lbl, "10:46");
+		lv_obj_align(compass_time_lbl, NULL, LV_ALIGN_CENTER, 0, -105);
 
 		uint8_t compass_tick_len = 5;
 		for (int i = 0 ; i < 36; i ++){
@@ -401,7 +413,7 @@ void create_screen(uint8_t screen_id){
 		lv_label_set_text(west_lbl, "W");
 		lv_obj_align(west_lbl, NULL, LV_ALIGN_CENTER, COMPASS_RADIUS+20, 10);
 
-		lv_obj_t * compass_lbl =  lv_label_create(compass_screen, NULL);
+		compass_lbl =  lv_label_create(compass_screen, NULL);
 		lv_label_set_text(compass_lbl, "COMPASS");
 		lv_obj_align(compass_lbl, NULL, LV_ALIGN_CENTER, 0, 10);
 
@@ -417,9 +429,9 @@ void create_screen(uint8_t screen_id){
 		 *********************/
 		lv_obj_t * weather_screen = lv_obj_create(NULL, NULL);
 
-		time_lbl =  lv_label_create(weather_screen, NULL);
-		lv_label_set_text(time_lbl, "10:46");
-		lv_obj_align(time_lbl, NULL, LV_ALIGN_CENTER, 0, -105);
+		lv_obj_t * weather_time_lbl =  lv_label_create(weather_screen, NULL);
+		lv_label_set_text(weather_time_lbl, "10:46");
+		lv_obj_align(weather_time_lbl, NULL, LV_ALIGN_CENTER, 0, -105);
 
 //		lv_obj_t * weather_icon = lv_img_create(weather_screen, NULL);
 //		lv_img_set_src(weather_icon,&weather);
@@ -711,13 +723,22 @@ void state_machine()
 			if( North_DirQ != NULL ){
 				if(xQueueReceive(North_DirQ, &North_Dir,100)== pdPASS){
 					SW_SafePrint(&UART_Jeton, "#SM Received North_DirQ : %f.\n",North_Dir);
-					//lv_obj_set_pos(ellipse_img, cos(deg_to_rad(North_Dir))*COMPASS_RADIUS+155,sin(deg_to_rad(North_Dir))*COMPASS_RADIUS+120);
+					if (current_screen == 1){
+//						int deg = abs((int)&North_Dir);
+//						double x = cos(deg_to_rad(deg-90))*COMPASS_RADIUS+155;
+//						double y = sin(deg_to_rad(deg-90))*COMPASS_RADIUS+120;
+//						lv_obj_set_pos(ellipse_img, x, y);
+//						lv_label_set_text(compass_lbl, num_to_string(deg, "°"));
+					}
 				}
 			}
 		}else if(received_smphr == StepsQ){
 			xQueueReceive(StepsQ, &steps, 100);
 		}else if(received_smphr ==WeatherQ){
 			xQueueReceive(WeatherQ, &weather__, 100);
+//			lv_label_set_text(temp_lbl, num_to_string((int)&weather__.Temperature, "°C"));
+//			lv_label_set_text(hum_lbl, num_to_string((int)&weather__.Humdity, "%"));
+//			lv_label_set_text(press_lbl, num_to_string((int)&weather__.Pressure, "hPa"));
 		}
 	}
 
@@ -782,7 +803,6 @@ void app_main(void)
 	gpio_install_isr_service(0);
 	gpio_isr_handler_add(LSM6DSO_INT1, Inactivity_Activity_IRQ,NULL);
 	gpio_wakeup_enable(LSM6DSO_INT1, GPIO_INTR_HIGH_LEVEL);
-	gpio_wakeup_enable(BTN_GPIO, GPIO_INTR_NEGEDGE);
 	esp_sleep_enable_gpio_wakeup();
 	/**************LSM6DSO_INT1 ISR / Wake-up Trigger *****************/
 
