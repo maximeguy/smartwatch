@@ -24,10 +24,10 @@
 //#include "images/news.c"
 #include "images/bluetooth.c"
 #include "images/ellipse.c"
-//#include "images/temperature.c"
-//#include "images/weather.c"
-//#include "images/humidity.c"
-//#include "images/pressure.c"
+#include "images/temperature.c"
+#include "images/weather.c"
+#include "images/humidity.c"
+#include "images/pressure.c"
 #include "images/steps.c"
 
 /*********************
@@ -69,7 +69,6 @@ esp_err_t SW_SafePrint(SemaphoreHandle_t* Jeton,const char* fmt, ...);
  *  STATIC PROTOTYPES
  **********************/
 static void lv_tick_task(void *arg);
-static void blink_task(void *arg);
 static void state_machine();
 static void create_screen(uint8_t screen_id);
 
@@ -130,11 +129,15 @@ lv_obj_t * compass_lbl;
 lv_obj_t * temp_lbl;
 lv_obj_t * hum_lbl;
 lv_obj_t * press_lbl;
+lv_obj_t * canvas;
+lv_draw_line_dsc_t line_dsc;
 
-char * str_buf;
+
+char str_buf[32];
 static lv_color_t c_a;
 static lv_color_t c_b;
 static lv_color_t c_c;
+
 
 
 /**********************
@@ -307,11 +310,11 @@ Weather weather;
 	}
 }
 
-char * num_to_string(int num, char * suffix){
-		sprintf(str_buf, "%d", num);
-		strcat(str_buf, suffix);
-	    return str_buf;
-}
+//char * num_to_string(int num, char * suffix){
+//		sprintf(str_buf, "%d", num);
+//		strcat(str_buf, suffix);
+//	    return str_buf;
+//}
 
 
 void create_screen(uint8_t screen_id){
@@ -340,11 +343,10 @@ void create_screen(uint8_t screen_id){
 		lv_img_set_src(steps_icon,&steps);
 		lv_obj_align(steps_icon, NULL, LV_ALIGN_CENTER, -30, 80);
 
-//		steps_lbl = lv_label_create(main_screen, NULL);
-//		lv_label_set_text(steps_lbl, "432");
-//		lv_obj_align(steps_lbl, NULL, LV_LABEL_ALIGN_LEFT, 5, 80);
+		steps_lbl = lv_label_create(main_screen, NULL);
+		lv_label_set_text(steps_lbl, "432");
+		lv_obj_align(steps_lbl, NULL, LV_LABEL_ALIGN_LEFT, 5, 80);
 
-		lv_draw_line_dsc_t line_dsc;
 		lv_draw_line_dsc_init(&line_dsc);
 		line_dsc.color=c_a;
 		line_dsc.width = 8;
@@ -353,7 +355,7 @@ void create_screen(uint8_t screen_id){
 
 		static lv_color_t cbuf[LV_CANVAS_BUF_SIZE_TRUE_COLOR(120, 120)];
 
-		lv_obj_t * canvas = lv_canvas_create(main_screen, NULL);
+		canvas = lv_canvas_create(main_screen, NULL);
 		lv_canvas_set_buffer(canvas, cbuf, 120, 120, LV_IMG_CF_TRUE_COLOR_ALPHA);
 		lv_obj_align(canvas, NULL, LV_ALIGN_CENTER, 0, 0);
 		lv_canvas_draw_arc(canvas, 60, 60, 60, 360-90, 300-90, &line_dsc);
@@ -433,29 +435,29 @@ void create_screen(uint8_t screen_id){
 		lv_label_set_text(weather_time_lbl, "10:46");
 		lv_obj_align(weather_time_lbl, NULL, LV_ALIGN_CENTER, 0, -105);
 
-//		lv_obj_t * weather_icon = lv_img_create(weather_screen, NULL);
-//		lv_img_set_src(weather_icon,&weather);
-//		lv_obj_align(weather_icon, NULL, LV_ALIGN_CENTER, 0, -60);
+		lv_obj_t * weather_icon = lv_img_create(weather_screen, NULL);
+		lv_img_set_src(weather_icon,&weather);
+		lv_obj_align(weather_icon, NULL, LV_ALIGN_CENTER, 0, -60);
 
-//		lv_obj_t * temp_icon = lv_img_create(weather_screen, NULL);
-//		lv_img_set_src(temp_icon,&temperature);
-//		lv_obj_align(temp_icon, NULL, LV_ALIGN_CENTER, 100, -20);
+		lv_obj_t * temp_icon = lv_img_create(weather_screen, NULL);
+		lv_img_set_src(temp_icon,&temperature);
+		lv_obj_align(temp_icon, NULL, LV_ALIGN_CENTER, 100, -20);
 
 		lv_obj_t * temp_lbl =  lv_label_create(weather_screen, NULL);
 		lv_label_set_text(temp_lbl, "12.5°C");
 		lv_obj_align(temp_lbl, NULL, LV_ALIGN_CENTER, 100, 15);
 
-//		lv_obj_t * hum_icon = lv_img_create(weather_screen, NULL);
-//		lv_img_set_src(hum_icon,&humidity);
-//		lv_obj_align(hum_icon, NULL, LV_ALIGN_CENTER, -100, -20);
+		lv_obj_t * hum_icon = lv_img_create(weather_screen, NULL);
+		lv_img_set_src(hum_icon,&humidity);
+		lv_obj_align(hum_icon, NULL, LV_ALIGN_CENTER, -100, -20);
 
 		lv_obj_t * hum_lbl =  lv_label_create(weather_screen, NULL);
 		lv_label_set_text(hum_lbl, "55%");
 		lv_obj_align(hum_lbl, NULL, LV_ALIGN_CENTER, -100, 15);
 
-//		lv_obj_t * press_icon = lv_img_create(weather_screen, NULL);
-//		lv_img_set_src(press_icon,&pressure);
-//		lv_obj_align(press_icon, NULL, LV_ALIGN_CENTER, 0, 40);
+		lv_obj_t * press_icon = lv_img_create(weather_screen, NULL);
+		lv_img_set_src(press_icon,&pressure);
+		lv_obj_align(press_icon, NULL, LV_ALIGN_CENTER, 0, 40);
 
 		lv_obj_t * press_lbl =  lv_label_create(weather_screen, NULL);
 		lv_label_set_text(press_lbl, "12.5°C");
@@ -667,19 +669,6 @@ static void init_lvgl() {
     ESP_ERROR_CHECK(esp_timer_start_periodic(periodic_timer, LV_TICK_PERIOD_MS * 1000));
 }
 
-// Toggle led
-void blink_task(void *arg){
-
-    while(1){
-        /* Blink off (output high) */
-        gpio_set_level(BLINK_GPIO, 1);
-        vTaskDelay(500 / portTICK_PERIOD_MS);
-        /* Blink on (output low) */
-        gpio_set_level(BLINK_GPIO, 0);
-        vTaskDelay(500 / portTICK_PERIOD_MS);
-    }
-}
-
 void state_machine()
 {
 	//uint8_t blink_state = 1;
@@ -689,7 +678,12 @@ void state_machine()
 	Weather weather__;
 	QueueSetMemberHandle_t received_smphr;
 
-	//vTaskResume(blink_task_handle);
+	char temp_buf[16];
+	char hum_buf[16];
+	char press_buf[16];
+	char deg_buf[16];
+	char step_buf[16];
+	char time_buf[16];
 
 	while(1){
 		received_smphr = xQueueSelectFromSet(smphr_qs, portMAX_DELAY);
@@ -700,48 +694,68 @@ void state_machine()
 			if (current_screen >= N_SCREENS) current_screen = 0;
 			//create_screen(current_screen);
 			lv_scr_load(screens[current_screen]);
-			if(current_screen == 1){
-				vTaskResume(LIS2MDL_TASK_Handler);
-			}
-			else vTaskSuspend(LIS2MDL_TASK_Handler);
-//			blink_state = !blink_state;
-//			if(blink_state == 1)vTaskResume(blink_task_handle);
-//			else vTaskSuspend(blink_task_handle);
+			current_screen == 1 ? vTaskResume(LIS2MDL_TASK_Handler) : vTaskSuspend(LIS2MDL_TASK_Handler);
+			current_screen == 2 ? vTaskResume(Weather_TASK_Handler) : vTaskSuspend(Weather_TASK_Handler);
 		}
 		else if (received_smphr == clock_smphr){
 			SW_SafePrint(&UART_Jeton, "#SM Tick (second).\n");
 			xSemaphoreTake(clock_smphr,0);
 			display_state = !display_state;
-			if(display_state == 1)lv_label_set_text(time_lbl, "10:46");
-			else lv_label_set_text(time_lbl, "10 46");
+
+			struct tm time = NTP_GetTime();
+
+			if(display_state == 1){
+				sprintf(time_buf, "%d:%d",time.tm_hour, time.tm_min);
+				lv_label_set_text(time_lbl, time_buf);
+			}
+			else {
+				sprintf(time_buf, "%d %d",time.tm_hour, time.tm_min);
+				lv_label_set_text(time_lbl, time_buf);
+			}
+			if (current_screen == 0){
+				lv_canvas_fill_bg(canvas, LV_COLOR_WHITE, 1);
+				line_dsc.color=c_a;
+				line_dsc.width = 8;
+				lv_canvas_draw_arc(canvas, 60, 60, 60, 360-90, ((360-90)*time.tm_hour/24), &line_dsc);
+				line_dsc.color=c_b;
+				line_dsc.width = 6;
+				lv_canvas_draw_arc(canvas, 60, 60, 50, 360-90, ((360-90)*time.tm_min)/60, &line_dsc);
+				line_dsc.color=c_c;
+				line_dsc.width = 4;
+				lv_canvas_draw_arc(canvas, 60, 60, 42, 360-90, ((360-90)*time.tm_sec)/60, &line_dsc);
+			}
 		}
 		else if (received_smphr == gui_smphr){
-			SW_SafePrint(&UART_Jeton, "#SM Display update.\n");
+			//SW_SafePrint(&UART_Jeton, "#SM Display update.\n");
 			xSemaphoreTake(gui_smphr,0);
 			lv_task_handler();
 		}else if (received_smphr == North_DirQ){
-			if( North_DirQ != NULL ){
 				if(xQueueReceive(North_DirQ, &North_Dir,100)== pdPASS){
 					SW_SafePrint(&UART_Jeton, "#SM Received North_DirQ : %f.\n",North_Dir);
-					if (current_screen == 1){
-//						int deg = abs((int)&North_Dir);
-//						double x = cos(deg_to_rad(deg-90))*COMPASS_RADIUS+155;
-//						double y = sin(deg_to_rad(deg-90))*COMPASS_RADIUS+120;
-//						lv_obj_set_pos(ellipse_img, x, y);
-//						lv_label_set_text(compass_lbl, num_to_string(deg, "°"));
-					}
+					uint16_t deg = (uint16_t)North_Dir;
+					double x = cos(deg_to_rad(deg-90))*COMPASS_RADIUS+155;
+					double y = sin(deg_to_rad(deg-90))*COMPASS_RADIUS+120;
+					lv_obj_set_pos(ellipse_img, x, y);
+					sprintf(deg_buf, "%u°", deg);
+					lv_label_set_text(compass_lbl, deg_buf);
 				}
-			}
 		}else if(received_smphr == StepsQ){
-			xQueueReceive(StepsQ, &steps, 100);
-		}else if(received_smphr ==WeatherQ){
-			xQueueReceive(WeatherQ, &weather__, 100);
-//			lv_label_set_text(temp_lbl, num_to_string((int)&weather__.Temperature, "°C"));
-//			lv_label_set_text(hum_lbl, num_to_string((int)&weather__.Humdity, "%"));
-//			lv_label_set_text(press_lbl, num_to_string((int)&weather__.Pressure, "hPa"));
+//			if(xQueueReceive(StepsQ, &steps, 100)== pdPASS){
+//				sprintf(step_buf, "%u", steps.CurrentSteps);
+//				lv_label_set_text(steps_lbl, step_buf);
+//			}
+		}else if(received_smphr == WeatherQ){
+//			if(xQueueReceive(WeatherQ, &weather__, 200)== pdPASS){
+//				SW_SafePrint(&UART_Jeton, "#SM Received North_DirQ : %f.\n",North_Dir);
+//				sprintf(temp_buf, "%5.1f°C", weather__.Temperature);
+//				lv_label_set_text(temp_lbl, temp_buf);
+//				sprintf(hum_buf, "%5.1f%%", weather__.Humdity);
+//				lv_label_set_text(hum_lbl, hum_buf);
+//				sprintf(press_buf, "%5.1fhPa", weather__.Pressure);
+//				lv_label_set_text(press_lbl, press_buf);
+//			}
 		}
 	}
-
 }
 
 void app_main(void)
@@ -790,13 +804,13 @@ void app_main(void)
 	NTP_Init();
 	vTaskDelay(2000/portTICK_PERIOD_MS);
 	xTaskCreate(StepCounter, "StepCounter", 10000, NULL, 1, &StepCounter_Handler);
-	vTaskSuspend(StepCounter_Handler);
+	//vTaskSuspend(StepCounter_Handler);
 	xTaskCreate(Lsm6dso_TASK, "Lsm6dso_TASK", 10000, NULL, 2, &Lsm6dso_TASK_Handler);
 	//vTaskSuspend(Lsm6dso_TASK_Handler);
 	xTaskCreate(LIS2MDL_TASK, "LIS2MDL_TASK", 10000, NULL, 1, &LIS2MDL_TASK_Handler);
-	//vTaskSuspend(LIS2MDL_TASK_Handler);
+	vTaskSuspend(LIS2MDL_TASK_Handler);
 	xTaskCreate(Weather_TASK, "Weather_TASK", 10000, NULL, 1, &Weather_TASK_Handler);
-
+	vTaskSuspend(Weather_TASK_Handler);
 	/**************LSM6DSO_INT1 ISR / Wake-up Trigger *****************/
 	gpio_set_direction(LSM6DSO_INT1, GPIO_MODE_INPUT);
 	gpio_set_intr_type(LSM6DSO_INT1,GPIO_INTR_POSEDGE);
@@ -829,12 +843,10 @@ void app_main(void)
 	screens = malloc(N_SCREENS * sizeof(lv_obj_t));
     create_screen(current_screen);
 
-    xTaskCreate(blink_task, "blink_task", 10000, NULL, 3, &blink_task_handle);
-    vTaskSuspend(blink_task_handle);
     xTaskCreate(state_machine, "state_machine", 10000, NULL, 6, &state_machine_handle);
 
     init_clock_timer(1000 * 1000);
-    init_timer_display(50 * 1000);
+    init_timer_display(200 * 1000);
 }
 
 
