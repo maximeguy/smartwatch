@@ -25,7 +25,7 @@
 #include "images/bluetooth.c"
 #include "images/ellipse.c"
 #include "images/temperature.c"
-#include "images/weather.c"
+//#include "images/weather.c"
 #include "images/humidity.c"
 #include "images/pressure.c"
 #include "images/steps.c"
@@ -33,14 +33,10 @@
 /*********************
  *      DEFINES
  *********************/
-#define TAG "lvgl_rtos"
-#define BLINK_GPIO 4
 #define BTN_GPIO 0
 #define LV_TICK_PERIOD_MS 100
-#define BLINK_PERIOD_MS 200
-#define TXT_PERIOD_MS 2000
 #define N_SCREENS 3
-#define COMPASS_RADIUS 70
+#define COMPASS_RADIUS 42
 
 /********I2c Specific*********/
 #define I2C_MASTER_SCL_IO 26//19
@@ -290,7 +286,7 @@ void LIS2MDL_TASK(void * pvParameters){
 			xQueueSend(North_DirQ,&angle_degree,100)==pdTRUE?SW_SafePrint(&UART_Jeton, "The North direction relative to the sensor: %5.1f deg\r\n", angle_degree)
 					:SW_SafePrint(&UART_Jeton,"North_DirQ Not Sent\n\r");
 		}
-		vTaskDelay(2000/portTICK_PERIOD_MS);
+		vTaskDelay(200/portTICK_PERIOD_MS);
 	}
 }
 
@@ -344,18 +340,18 @@ void create_screen(uint8_t screen_id){
 		line_dsc.round_end = 1;
 		line_dsc.round_start = 1;
 
-		static lv_color_t cbuf[LV_CANVAS_BUF_SIZE_TRUE_COLOR(120, 120)];
+		static lv_color_t cbuf[LV_CANVAS_BUF_SIZE_TRUE_COLOR(100, 100)];
 
 		canvas = lv_canvas_create(main_screen, NULL);
-		lv_canvas_set_buffer(canvas, cbuf, 120, 120, LV_IMG_CF_TRUE_COLOR_ALPHA);
+		lv_canvas_set_buffer(canvas, cbuf, 100, 100, LV_IMG_CF_TRUE_COLOR_ALPHA);
 		lv_obj_align(canvas, NULL, LV_ALIGN_CENTER, 0, 0);
-		lv_canvas_draw_arc(canvas, 60, 60, 60, 360-90, 300-90, &line_dsc);
+		lv_canvas_draw_arc(canvas, 50, 50, 50, 360-90, time.tm_hour >= 0 && time.tm_hour <=6 ? ((360)*time.tm_hour)/24 + 270 : ((360)*time.tm_hour)/24 + -90, &line_dsc);
 		line_dsc.color=c_b;
 		line_dsc.width = 6;
-		lv_canvas_draw_arc(canvas, 60, 60, 50, 360-90, 190-90, &line_dsc);
+		lv_canvas_draw_arc(canvas, 50, 50, 40, 360-90, time.tm_min >= 0 && time.tm_min <=15 ? ((360)*time.tm_min)/60 + 270 : ((360)*time.tm_min)/60 + -90, &line_dsc);
 		line_dsc.color=c_c;
 		line_dsc.width = 4;
-		lv_canvas_draw_arc(canvas, 60, 60, 42, 360-90, 260-90, &line_dsc);
+		lv_canvas_draw_arc(canvas, 50, 50, 32, 360-90, time.tm_sec >= 0 && time.tm_sec <=15 ? ((360)*time.tm_sec)/60 + 270 : ((360)*time.tm_sec)/60 + -90, &line_dsc);
 
 		screens[0] = main_screen;
 
@@ -380,12 +376,13 @@ void create_screen(uint8_t screen_id){
 //		lv_obj_set_size(arc, 140, 140);
 //		lv_obj_align(arc, NULL, LV_ALIGN_CENTER, 0, 0);
 
+		static lv_color_t cbuf2[LV_CANVAS_BUF_SIZE_TRUE_COLOR(90, 90)];
+		lv_obj_t * compass_canvas = lv_canvas_create(compass_screen, NULL);
+		lv_canvas_set_buffer(compass_canvas, cbuf2, 90, 90, LV_IMG_CF_TRUE_COLOR_ALPHA);
+		lv_obj_align(compass_canvas, NULL, LV_ALIGN_CENTER, 0, 0);
+		lv_canvas_draw_arc(compass_canvas, 45, 45, 45, 0, 360, &line_dsc);
 
-//		lv_obj_t * compass_canvas = lv_canvas_create(compass_screen, NULL);
-//		lv_canvas_set_buffer(compass_canvas, cbuf, 120, 120, LV_IMG_CF_TRUE_COLOR_ALPHA);
-//		lv_obj_align(compass_canvas, NULL, LV_ALIGN_CENTER, 0, 0);
-//		lv_canvas_draw_arc(compass_canvas, 60, 60, 60, 0, 360, &line_dsc);
-
+		//Sometimes it works sometimes it doesn't lines extends inexplicably
 //		uint8_t compass_tick_len = 5;
 //		for (int i = 0 ; i < 36; i ++){
 //			float rad = deg_to_rad(i*10);
@@ -401,30 +398,30 @@ void create_screen(uint8_t screen_id){
 //			lv_obj_set_pos(line1, x+160,y+125);
 //		}
 
-		lv_obj_t * north_lbl =  lv_label_create(compass_screen, NULL);
-		lv_label_set_text(north_lbl, "N");
-		lv_obj_align(north_lbl, NULL, LV_ALIGN_CENTER, 0, -COMPASS_RADIUS-10);
-
-		lv_obj_t * east_lbl =  lv_label_create(compass_screen, NULL);
-		lv_label_set_text(east_lbl, "E");
-		lv_obj_align(east_lbl, NULL, LV_ALIGN_CENTER, -COMPASS_RADIUS-20,10 );
-
-		lv_obj_t * south_lbl =  lv_label_create(compass_screen, NULL);
-		lv_label_set_text(south_lbl, "S");
-		lv_obj_align(south_lbl, NULL, LV_ALIGN_CENTER, 0, COMPASS_RADIUS+20);
-
-		lv_obj_t * west_lbl =  lv_label_create(compass_screen, NULL);
-		lv_label_set_text(west_lbl, "W");
-		lv_obj_align(west_lbl, NULL, LV_ALIGN_CENTER, COMPASS_RADIUS+20, 10);
+//		lv_obj_t * north_lbl =  lv_label_create(compass_screen, NULL);
+//		lv_label_set_text(north_lbl, "N");
+//		lv_obj_align(north_lbl, NULL, LV_ALIGN_CENTER, 0, -COMPASS_RADIUS-10);
+//
+//		lv_obj_t * east_lbl =  lv_label_create(compass_screen, NULL);
+//		lv_label_set_text(east_lbl, "E");
+//		lv_obj_align(east_lbl, NULL, LV_ALIGN_CENTER, -COMPASS_RADIUS-20,10 );
+//
+//		lv_obj_t * south_lbl =  lv_label_create(compass_screen, NULL);
+//		lv_label_set_text(south_lbl, "S");
+//		lv_obj_align(south_lbl, NULL, LV_ALIGN_CENTER, 0, COMPASS_RADIUS+20);
+//
+//		lv_obj_t * west_lbl =  lv_label_create(compass_screen, NULL);
+//		lv_label_set_text(west_lbl, "W");
+//		lv_obj_align(west_lbl, NULL, LV_ALIGN_CENTER, COMPASS_RADIUS+20, 10);
 
 		compass_lbl =  lv_label_create(compass_screen, NULL);
-		lv_label_set_text(compass_lbl, "COMPASS");
-		lv_obj_align(compass_lbl, NULL, LV_ALIGN_CENTER, 0, 10);
+		lv_label_set_text(compass_lbl, "    ");
+		lv_obj_align(compass_lbl, NULL, LV_ALIGN_CENTER, 0, 0);
 
 		ellipse_img = lv_img_create(compass_screen, NULL);
 		lv_img_set_src(ellipse_img,&ellipse);
 		lv_obj_align(ellipse_img, NULL, LV_ALIGN_CENTER, 0, 0);
-		lv_obj_set_pos(ellipse_img, cos(deg_to_rad(0))*COMPASS_RADIUS+155,sin(deg_to_rad(0))*COMPASS_RADIUS+120);
+		lv_obj_set_pos(ellipse_img, cos(deg_to_rad(0))*COMPASS_RADIUS+165,sin(deg_to_rad(0))*COMPASS_RADIUS+120);
 
 		screens[1] = compass_screen;
 
@@ -437,9 +434,9 @@ void create_screen(uint8_t screen_id){
 		lv_label_set_text(weather_time_lbl, time_buf);
 		lv_obj_align(weather_time_lbl, NULL, LV_ALIGN_CENTER, 0, -105);
 
-		lv_obj_t * weather_icon = lv_img_create(weather_screen, NULL);
-		lv_img_set_src(weather_icon,&weather);
-		lv_obj_align(weather_icon, NULL, LV_ALIGN_CENTER, 0, -60);
+//		lv_obj_t * weather_icon = lv_img_create(weather_screen, NULL);
+//		lv_img_set_src(weather_icon,&weather);
+//		lv_obj_align(weather_icon, NULL, LV_ALIGN_CENTER, 0, -60);
 
 		lv_obj_t * temp_icon = lv_img_create(weather_screen, NULL);
 		lv_img_set_src(temp_icon,&temperature);
@@ -471,6 +468,13 @@ void create_screen(uint8_t screen_id){
 }
 
 //static void create_screen(uint8_t screen_id){
+//	struct tm time = NTP_GetTime();
+//	char time_buf[16];
+//
+//	char date_buf[16];
+//	strftime(date_buf,16, "%a %d/%m",&time);
+//	strftime(time_buf,16, "%R",&time);
+//
 //	switch(screen_id) {
 //		case 0:
 //		/*********************
@@ -483,15 +487,11 @@ void create_screen(uint8_t screen_id){
 //		lv_obj_align(bt_icon, NULL, LV_ALIGN_CENTER, 140, -100);
 //
 //		time_lbl =  lv_label_create(main_screen, NULL);
-//		lv_label_set_text(time_lbl, "10:46");
+//		lv_label_set_text(time_lbl, time_buf);
 //		lv_obj_align(time_lbl, NULL, LV_ALIGN_CENTER, 0, 0);
 //
-//		day_lbl =  lv_label_create(main_screen, NULL);
-//		lv_label_set_text(day_lbl, "Wednesday");
-//		lv_obj_align(day_lbl, NULL, LV_ALIGN_CENTER, 0, -85);
-//
 //		date_lbl = lv_label_create(main_screen, NULL);
-//		lv_label_set_text(date_lbl, "18/02/23");
+//		lv_label_set_text(date_lbl, date_buf);
 //		lv_obj_align(date_lbl, NULL, LV_ALIGN_CENTER, 0, -105);
 //
 //		lv_obj_t * steps_icon = lv_img_create(main_screen, NULL);
@@ -502,7 +502,6 @@ void create_screen(uint8_t screen_id){
 //		lv_label_set_text(steps_lbl, "432");
 //		lv_obj_align(steps_lbl, NULL, LV_LABEL_ALIGN_LEFT, 5, 80);
 //
-//		lv_draw_line_dsc_t line_dsc;
 //		lv_draw_line_dsc_init(&line_dsc);
 //		line_dsc.color=c_a;
 //		line_dsc.width = 8;
@@ -511,7 +510,7 @@ void create_screen(uint8_t screen_id){
 //
 //		static lv_color_t cbuf[LV_CANVAS_BUF_SIZE_TRUE_COLOR(120, 120)];
 //
-//		lv_obj_t * canvas = lv_canvas_create(main_screen, NULL);
+//		canvas = lv_canvas_create(main_screen, NULL);
 //		lv_canvas_set_buffer(canvas, cbuf, 120, 120, LV_IMG_CF_TRUE_COLOR_ALPHA);
 //		lv_obj_align(canvas, NULL, LV_ALIGN_CENTER, 0, 0);
 //		lv_canvas_draw_arc(canvas, 60, 60, 60, 360-90, 300-90, &line_dsc);
@@ -537,24 +536,35 @@ void create_screen(uint8_t screen_id){
 //
 //		lv_obj_t * compass_screen = lv_obj_create(NULL, NULL);
 //
-//		time_lbl =  lv_label_create(compass_screen, NULL);
-//		lv_label_set_text(time_lbl, "10:46");
-//		lv_obj_align(time_lbl, NULL, LV_ALIGN_CENTER, 0, -105);
+//		compass_time_lbl =  lv_label_create(compass_screen, NULL);
+//		lv_label_set_text(compass_time_lbl, time_buf);
+//		lv_obj_align(compass_time_lbl, NULL, LV_ALIGN_CENTER, 0, -105);
 //
-//		uint8_t compass_tick_len = 5;
-//		for (int i = 0 ; i < 36; i ++){
-//			float rad = deg_to_rad(i*10);
-//			float x = cos(rad)*COMPASS_RADIUS;
-//			float y = sin(rad)*COMPASS_RADIUS;
-//			float xx = cos(rad)*(COMPASS_RADIUS+compass_tick_len);
-//			float yy = sin(rad)*(COMPASS_RADIUS+compass_tick_len);
-//			//ESP_LOGI(TAG, "deg : %d°; rad : %f; x : %f; y : %f", i*10, rad, x, y);
-//			lv_point_t  compass_tick[] = {{x, y}, {xx, yy}};
-//			lv_obj_t * line1= lv_line_create(compass_screen, NULL);
-//			lv_line_set_points(line1, compass_tick, 5);     /*Set the points*/
-//			lv_obj_add_style(line1, LV_OBJ_PART_MAIN, &line_style);     /*Set the points*/
-//			lv_obj_set_pos(line1, x+160,y+125);
-//		}
+////		lv_obj_t * arc = lv_arc_create(compass_screen, None);
+////		lv_arc_set_end_angle(arc, 360);
+////		lv_obj_set_size(arc, 140, 140);
+////		lv_obj_align(arc, NULL, LV_ALIGN_CENTER, 0, 0);
+//
+//		static lv_color_t cbuf2[LV_CANVAS_BUF_SIZE_TRUE_COLOR(60, 60)];
+//		lv_obj_t * compass_canvas = lv_canvas_create(compass_screen, NULL);
+//		lv_canvas_set_buffer(compass_canvas, cbuf2, 60, 60, LV_IMG_CF_TRUE_COLOR_ALPHA);
+//		lv_obj_align(compass_canvas, NULL, LV_ALIGN_CENTER, 0, 0);
+//		lv_canvas_draw_arc(compass_canvas, 60, 60, 60, 0, 360, &line_dsc);
+//
+////		uint8_t compass_tick_len = 5;
+////		for (int i = 0 ; i < 36; i ++){
+////			float rad = deg_to_rad(i*10);
+////			float x = cos(rad)*COMPASS_RADIUS;
+////			float y = sin(rad)*COMPASS_RADIUS;
+////			float xx = cos(rad)*(COMPASS_RADIUS+compass_tick_len);
+////			float yy = sin(rad)*(COMPASS_RADIUS+compass_tick_len);
+////			//ESP_LOGI(TAG, "deg : %d°; rad : %f; x : %f; y : %f", i*10, rad, x, y);
+////			lv_point_t  compass_tick[] = {{x, y}, {xx, yy}};
+////			lv_obj_t * line1= lv_line_create(compass_screen, NULL);
+////			lv_line_set_points(line1, compass_tick, 5);     /*Set the points*/
+////			lv_obj_add_style(line1, LV_OBJ_PART_MAIN, &line_style);     /*Set the points*/
+////			lv_obj_set_pos(line1, x+160,y+125);
+////		}
 //
 //		lv_obj_t * north_lbl =  lv_label_create(compass_screen, NULL);
 //		lv_label_set_text(north_lbl, "N");
@@ -572,7 +582,7 @@ void create_screen(uint8_t screen_id){
 //		lv_label_set_text(west_lbl, "W");
 //		lv_obj_align(west_lbl, NULL, LV_ALIGN_CENTER, COMPASS_RADIUS+20, 10);
 //
-//		lv_obj_t * compass_lbl =  lv_label_create(compass_screen, NULL);
+//		compass_lbl =  lv_label_create(compass_screen, NULL);
 //		lv_label_set_text(compass_lbl, "COMPASS");
 //		lv_obj_align(compass_lbl, NULL, LV_ALIGN_CENTER, 0, 10);
 //
@@ -590,13 +600,13 @@ void create_screen(uint8_t screen_id){
 //		 *********************/
 //		lv_obj_t * weather_screen = lv_obj_create(NULL, NULL);
 //
-//		time_lbl =  lv_label_create(weather_screen, NULL);
-//		lv_label_set_text(time_lbl, "10:46");
-//		lv_obj_align(time_lbl, NULL, LV_ALIGN_CENTER, 0, -105);
+//		weather_time_lbl =  lv_label_create(weather_screen, NULL);
+//		lv_label_set_text(weather_time_lbl, time_buf);
+//		lv_obj_align(weather_time_lbl, NULL, LV_ALIGN_CENTER, 0, -105);
 //
-//		lv_obj_t * weather_icon = lv_img_create(weather_screen, NULL);
-//		lv_img_set_src(weather_icon,&weather);
-//		lv_obj_align(weather_icon, NULL, LV_ALIGN_CENTER, 0, -60);
+////		lv_obj_t * weather_icon = lv_img_create(weather_screen, NULL);
+////		lv_img_set_src(weather_icon,&weather);
+////		lv_obj_align(weather_icon, NULL, LV_ALIGN_CENTER, 0, -60);
 //
 //		lv_obj_t * temp_icon = lv_img_create(weather_screen, NULL);
 //		lv_img_set_src(temp_icon,&temperature);
@@ -621,6 +631,7 @@ void create_screen(uint8_t screen_id){
 //		lv_obj_t * press_lbl =  lv_label_create(weather_screen, NULL);
 //		lv_label_set_text(press_lbl, "12.5°C");
 //		lv_obj_align(press_lbl, NULL, LV_ALIGN_CENTER, 0, 75);
+//
 //
 //		screens[2] = weather_screen;
 //		screen_init[2]=1;
@@ -726,13 +737,13 @@ void state_machine()
 				lv_canvas_fill_bg(canvas, LV_COLOR_WHITE, 1);
 				line_dsc.color=c_a;
 				line_dsc.width = 8;
-				lv_canvas_draw_arc(canvas, 60, 60, 60, 360-90, time.tm_hour >= 0 && time.tm_hour <=6 ? ((360)*time.tm_hour)/24 + 270 : ((360)*time.tm_hour)/24 + -90, &line_dsc);
+				lv_canvas_draw_arc(canvas, 50, 50, 50, 360-90, time.tm_hour >= 0 && time.tm_hour <=6 ? ((360)*time.tm_hour)/24 + 270 : ((360)*time.tm_hour)/24 + -90, &line_dsc);
 				line_dsc.color=c_b;
 				line_dsc.width = 6;
-				lv_canvas_draw_arc(canvas, 60, 60, 50, 360-90, time.tm_min >= 0 && time.tm_min <=15 ? ((360)*time.tm_min)/60 + 270 : ((360)*time.tm_min)/60 + -90, &line_dsc);
+				lv_canvas_draw_arc(canvas, 50, 50, 40, 360-90, time.tm_min >= 0 && time.tm_min <=15 ? ((360)*time.tm_min)/60 + 270 : ((360)*time.tm_min)/60 + -90, &line_dsc);
 				line_dsc.color=c_c;
 				line_dsc.width = 4;
-				lv_canvas_draw_arc(canvas, 60, 60, 42, 360-90, time.tm_sec >= 0 && time.tm_sec <=15 ? ((360)*time.tm_sec)/60 + 270 : ((360)*time.tm_sec)/60 + -90, &line_dsc);
+				lv_canvas_draw_arc(canvas, 50, 50, 32, 360-90, time.tm_sec >= 0 && time.tm_sec <=15 ? ((360)*time.tm_sec)/60 + 270 : ((360)*time.tm_sec)/60 + -90, &line_dsc);
 			}
 		}
 		else if (received_member == gui_smphr){
@@ -741,12 +752,12 @@ void state_machine()
 			lv_task_handler();
 		}else if (received_member == North_DirQ){
 			if(xQueueReceive(North_DirQ, &North_Dir,100)== pdPASS){
-				SW_SafePrint(&UART_Jeton, "#SM Received North_DirQ : %f.\n",North_Dir);
-				uint16_t deg = (uint16_t)North_Dir;
-				double x = cos(deg_to_rad(deg-90))*COMPASS_RADIUS+155;
-				double y = sin(deg_to_rad(deg-90))*COMPASS_RADIUS+120;
+				SW_SafePrint(&UART_Jeton, "#SM Received North_DirQ : %f.\n",fabs(North_Dir));
+				double deg = (North_Dir+180) >= 0 && (North_Dir+180) <=90 ? (North_Dir+180) + 270 : (North_Dir+180)-90;
+				double x = cos(deg_to_rad(deg))*COMPASS_RADIUS+155;
+				double y = sin(deg_to_rad(deg))*COMPASS_RADIUS+115;
 				lv_obj_set_pos(ellipse_img, x, y);
-				sprintf(deg_buf, "%u°", deg);
+				sprintf(deg_buf, "%3.0f°", deg);
 				lv_label_set_text(compass_lbl, deg_buf);
 			}
 		}else if(received_member == StepsQ){

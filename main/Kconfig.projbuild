@@ -1,5 +1,16 @@
 menu "Example Configuration"
-
+    config WIFI_SSID
+        string "WiFi SSID"
+        default "MG_Pxl"
+        help
+            WiFi network identifier.
+            
+    config WIFI_PASSWORD
+        string "WiFi Password"
+        default "87654321"
+        help
+            WiFi network password.
+            
     config BLINK_GPIO
         int "Blink GPIO number"
         range 0 34
