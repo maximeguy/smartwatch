@@ -44,14 +44,14 @@
 
 /********I2c Specific*********/
 #define I2C_MASTER_SCL_IO 26//19
-#define I2C_MASTER_SDA_IO 2//18
+#define I2C_MASTER_SDA_IO 2
 #define LSM6DSO_INT1 25 //GPIO25 => RTC_GPIO6
 /********I2c Specific*********/
 
 #define deg_to_rad(angleInDegrees) ((angleInDegrees) * M_PI / 180.0)
 #define rad_to_deg(angleInRadians) ((angleInRadians) * 180.0 / M_PI)
 
-/* The combined length of the queues and binary semaphorse that will be
+/* The combined length of the queues and binary semaphore that will be
 added to the queue set. */
 #define COMBINED_LENGTH 18
 
@@ -71,8 +71,6 @@ esp_err_t SW_SafePrint(SemaphoreHandle_t* Jeton,const char* fmt, ...);
 static void lv_tick_task(void *arg);
 static void state_machine();
 static void create_screen(uint8_t screen_id);
-
-
 void Wifi_Init();
 
 /**********************
@@ -102,6 +100,9 @@ SemaphoreHandle_t I2c_Jeton =NULL;
  **********************/
 lv_obj_t * label;
 lv_obj_t * time_lbl;
+lv_obj_t * compass_time_lbl;
+lv_obj_t * weather_time_lbl;
+
 lv_obj_t * day_lbl;
 lv_obj_t * date_lbl;
 lv_obj_t * steps_lbl;
@@ -121,6 +122,8 @@ typedef struct Steps {
 
 uint8_t current_screen = 0;
 lv_obj_t ** screens;
+
+uint8_t screen_init[3] = {0,0,0};
 lv_obj_t * main_screen;
 lv_obj_t * compass_screen;
 lv_obj_t * weather_screen;
@@ -129,11 +132,10 @@ lv_obj_t * compass_lbl;
 lv_obj_t * temp_lbl;
 lv_obj_t * hum_lbl;
 lv_obj_t * press_lbl;
+lv_obj_t * compass_canvas;
 lv_obj_t * canvas;
 lv_draw_line_dsc_t line_dsc;
 
-
-char str_buf[32];
 static lv_color_t c_a;
 static lv_color_t c_b;
 static lv_color_t c_c;
@@ -145,29 +147,24 @@ static lv_color_t c_c;
  **********************/
 
 // Wake up after boot button was pressed
-static void IRAM_ATTR btn_isr_handler(void* arg)
-{
-
+static void IRAM_ATTR btn_isr_handler(void* arg){
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     xSemaphoreGiveFromISR(btn_smphr, &xHigherPriorityTaskWoken);
 }
 
 // Wake up after 2s from timer isr
-static bool IRAM_ATTR timer_isr_handler(gptimer_handle_t timer, const gptimer_alarm_event_data_t * edata, void * user_ctx)
-{
+static bool IRAM_ATTR timer_isr_handler(gptimer_handle_t timer, const gptimer_alarm_event_data_t * edata, void * user_ctx){
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     xSemaphoreGiveFromISR(clock_smphr, &xHigherPriorityTaskWoken);
     return true;
 }
 
 // Wake up after 100ms from timer isr
-static bool IRAM_ATTR timer_display_isr_handler(gptimer_handle_t timer, const gptimer_alarm_event_data_t * edata, void * user_ctx)
-{
+static bool IRAM_ATTR timer_display_isr_handler(gptimer_handle_t timer, const gptimer_alarm_event_data_t * edata, void * user_ctx){
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     xSemaphoreGiveFromISR(gui_smphr, &xHigherPriorityTaskWoken);
     return true;
 }
-
 
 void init_clock_timer(uint64_t delay){
 	gptimer_handle_t timer_handle = NULL;
@@ -223,11 +220,9 @@ void init_timer_display(uint64_t delay){
 	ESP_ERROR_CHECK(gptimer_start(timer_handle));
 }
 
-
 static void IRAM_ATTR  Inactivity_Activity_IRQ(void * args){
 	vTaskResume(Lsm6dso_TASK_Handler);
 }
-
 
 static void oneshot_timer_callback(void* arg){
 	esp_light_sleep_start(); //when we reach here, it means that 20 seconds are already passed without any motion detected
@@ -310,17 +305,17 @@ Weather weather;
 	}
 }
 
-//char * num_to_string(int num, char * suffix){
-//		sprintf(str_buf, "%d", num);
-//		strcat(str_buf, suffix);
-//	    return str_buf;
-//}
-
-
 void create_screen(uint8_t screen_id){
 		/*********************
 		 *      MAIN SCREEN
 		 *********************/
+		struct tm time = NTP_GetTime();
+		char time_buf[16];
+
+		char date_buf[16];
+		strftime(date_buf,16, "%a %d/%m",&time);
+		strftime(time_buf,16, "%R",&time);
+
 		lv_obj_t * main_screen = lv_obj_create(NULL, NULL);
 
 		lv_obj_t * bt_icon = lv_img_create(main_screen, NULL);
@@ -328,15 +323,11 @@ void create_screen(uint8_t screen_id){
 		lv_obj_align(bt_icon, NULL, LV_ALIGN_CENTER, 140, -100);
 
 		time_lbl =  lv_label_create(main_screen, NULL);
-		lv_label_set_text(time_lbl, "10:46");
+		lv_label_set_text(time_lbl, time_buf);
 		lv_obj_align(time_lbl, NULL, LV_ALIGN_CENTER, 0, 0);
 
-		day_lbl =  lv_label_create(main_screen, NULL);
-		lv_label_set_text(day_lbl, "Wednesday");
-		lv_obj_align(day_lbl, NULL, LV_ALIGN_CENTER, 0, -85);
-
 		date_lbl = lv_label_create(main_screen, NULL);
-		lv_label_set_text(date_lbl, "18/02/23");
+		lv_label_set_text(date_lbl, date_buf);
 		lv_obj_align(date_lbl, NULL, LV_ALIGN_CENTER, 0, -105);
 
 		lv_obj_t * steps_icon = lv_img_create(main_screen, NULL);
@@ -380,24 +371,35 @@ void create_screen(uint8_t screen_id){
 
 		lv_obj_t * compass_screen = lv_obj_create(NULL, NULL);
 
-		lv_obj_t * compass_time_lbl =  lv_label_create(compass_screen, NULL);
-		lv_label_set_text(compass_time_lbl, "10:46");
+		compass_time_lbl =  lv_label_create(compass_screen, NULL);
+		lv_label_set_text(compass_time_lbl, time_buf);
 		lv_obj_align(compass_time_lbl, NULL, LV_ALIGN_CENTER, 0, -105);
 
-		uint8_t compass_tick_len = 5;
-		for (int i = 0 ; i < 36; i ++){
-			float rad = deg_to_rad(i*10);
-			float x = cos(rad)*COMPASS_RADIUS;
-			float y = sin(rad)*COMPASS_RADIUS;
-			float xx = cos(rad)*(COMPASS_RADIUS+compass_tick_len);
-			float yy = sin(rad)*(COMPASS_RADIUS+compass_tick_len);
-			//ESP_LOGI(TAG, "deg : %d°; rad : %f; x : %f; y : %f", i*10, rad, x, y);
-			lv_point_t  compass_tick[] = {{x, y}, {xx, yy}};
-			lv_obj_t * line1= lv_line_create(compass_screen, NULL);
-			lv_line_set_points(line1, compass_tick, 5);     /*Set the points*/
-			lv_obj_add_style(line1, LV_OBJ_PART_MAIN, &line_style);     /*Set the points*/
-			lv_obj_set_pos(line1, x+160,y+125);
-		}
+//		lv_obj_t * arc = lv_arc_create(compass_screen, None);
+//		lv_arc_set_end_angle(arc, 360);
+//		lv_obj_set_size(arc, 140, 140);
+//		lv_obj_align(arc, NULL, LV_ALIGN_CENTER, 0, 0);
+
+
+//		lv_obj_t * compass_canvas = lv_canvas_create(compass_screen, NULL);
+//		lv_canvas_set_buffer(compass_canvas, cbuf, 120, 120, LV_IMG_CF_TRUE_COLOR_ALPHA);
+//		lv_obj_align(compass_canvas, NULL, LV_ALIGN_CENTER, 0, 0);
+//		lv_canvas_draw_arc(compass_canvas, 60, 60, 60, 0, 360, &line_dsc);
+
+//		uint8_t compass_tick_len = 5;
+//		for (int i = 0 ; i < 36; i ++){
+//			float rad = deg_to_rad(i*10);
+//			float x = cos(rad)*COMPASS_RADIUS;
+//			float y = sin(rad)*COMPASS_RADIUS;
+//			float xx = cos(rad)*(COMPASS_RADIUS+compass_tick_len);
+//			float yy = sin(rad)*(COMPASS_RADIUS+compass_tick_len);
+//			//ESP_LOGI(TAG, "deg : %d°; rad : %f; x : %f; y : %f", i*10, rad, x, y);
+//			lv_point_t  compass_tick[] = {{x, y}, {xx, yy}};
+//			lv_obj_t * line1= lv_line_create(compass_screen, NULL);
+//			lv_line_set_points(line1, compass_tick, 5);     /*Set the points*/
+//			lv_obj_add_style(line1, LV_OBJ_PART_MAIN, &line_style);     /*Set the points*/
+//			lv_obj_set_pos(line1, x+160,y+125);
+//		}
 
 		lv_obj_t * north_lbl =  lv_label_create(compass_screen, NULL);
 		lv_label_set_text(north_lbl, "N");
@@ -431,8 +433,8 @@ void create_screen(uint8_t screen_id){
 		 *********************/
 		lv_obj_t * weather_screen = lv_obj_create(NULL, NULL);
 
-		lv_obj_t * weather_time_lbl =  lv_label_create(weather_screen, NULL);
-		lv_label_set_text(weather_time_lbl, "10:46");
+		weather_time_lbl =  lv_label_create(weather_screen, NULL);
+		lv_label_set_text(weather_time_lbl, time_buf);
 		lv_obj_align(weather_time_lbl, NULL, LV_ALIGN_CENTER, 0, -105);
 
 		lv_obj_t * weather_icon = lv_img_create(weather_screen, NULL);
@@ -469,8 +471,6 @@ void create_screen(uint8_t screen_id){
 }
 
 //static void create_screen(uint8_t screen_id){
-//
-//
 //	switch(screen_id) {
 //		case 0:
 //		/*********************
@@ -523,6 +523,7 @@ void create_screen(uint8_t screen_id){
 //		lv_canvas_draw_arc(canvas, 60, 60, 42, 360-90, 260-90, &line_dsc);
 //
 //		screens[0] = main_screen;
+//		screen_init[0]=1;
 //		break;
 //		case 1:
 //		/*********************
@@ -581,6 +582,7 @@ void create_screen(uint8_t screen_id){
 //		lv_obj_set_pos(ellipse_img, cos(deg_to_rad(0))*COMPASS_RADIUS+155,sin(deg_to_rad(0))*COMPASS_RADIUS+120);
 //
 //		screens[1] = compass_screen;
+//		screen_init[1]=1;
 //		break;
 //		case 2:
 //		/*********************
@@ -621,13 +623,18 @@ void create_screen(uint8_t screen_id){
 //		lv_obj_align(press_lbl, NULL, LV_ALIGN_CENTER, 0, 75);
 //
 //		screens[2] = weather_screen;
+//		screen_init[2]=1;
 //		break;
 //	}
 //	SW_SafePrint(&UART_Jeton, "WTL screen %d\n",current_screen);
+//
 //	lv_scr_load(screens[screen_id]);
-////	for (uint8_t i = 0; i< N_SCREENS; i++){
-////		if (i != screen_id) lv_obj_clean(screens[i]);
-////	}
+//	for (uint8_t i = 0; i< N_SCREENS; i++){
+//		if (i != screen_id && screen_init[i]) {
+//			lv_obj_clean(screens[i]);
+//			screen_init[i] = 0;
+//		}
+//	}
 //}
 
 
@@ -671,12 +678,11 @@ static void init_lvgl() {
 
 void state_machine()
 {
-	//uint8_t blink_state = 1;
 	uint8_t display_state = 0;
 	double North_Dir=0.0;
 	Steps steps;
 	Weather weather__;
-	QueueSetMemberHandle_t received_smphr;
+	QueueSetMemberHandle_t received_member;
 
 	char temp_buf[16];
 	char hum_buf[16];
@@ -686,8 +692,8 @@ void state_machine()
 	char time_buf[16];
 
 	while(1){
-		received_smphr = xQueueSelectFromSet(smphr_qs, portMAX_DELAY);
-		if (received_smphr == btn_smphr){
+		received_member = xQueueSelectFromSet(smphr_qs, portMAX_DELAY);
+		if (received_member == btn_smphr){
 			xSemaphoreTake(btn_smphr,0);
 			current_screen++;
 			SW_SafePrint(&UART_Jeton, "#SM BOOT button toggle : current screen : %d\n",current_screen);
@@ -697,7 +703,7 @@ void state_machine()
 			current_screen == 1 ? vTaskResume(LIS2MDL_TASK_Handler) : vTaskSuspend(LIS2MDL_TASK_Handler);
 			current_screen == 2 ? vTaskResume(Weather_TASK_Handler) : vTaskSuspend(Weather_TASK_Handler);
 		}
-		else if (received_smphr == clock_smphr){
+		else if (received_member == clock_smphr){
 			SW_SafePrint(&UART_Jeton, "#SM Tick (second).\n");
 			xSemaphoreTake(clock_smphr,0);
 			display_state = !display_state;
@@ -705,55 +711,60 @@ void state_machine()
 			struct tm time = NTP_GetTime();
 
 			if(display_state == 1){
-				sprintf(time_buf, "%d:%d",time.tm_hour, time.tm_min);
+				sprintf(time_buf, "%02d:%02d",time.tm_hour, time.tm_min);
 				lv_label_set_text(time_lbl, time_buf);
+				lv_label_set_text(compass_time_lbl, time_buf);
+				lv_label_set_text(weather_time_lbl, time_buf);
 			}
 			else {
-				sprintf(time_buf, "%d %d",time.tm_hour, time.tm_min);
+				sprintf(time_buf, "%02d %02d",time.tm_hour, time.tm_min);
 				lv_label_set_text(time_lbl, time_buf);
+				lv_label_set_text(compass_time_lbl, time_buf);
+				lv_label_set_text(weather_time_lbl, time_buf);
 			}
 			if (current_screen == 0){
 				lv_canvas_fill_bg(canvas, LV_COLOR_WHITE, 1);
 				line_dsc.color=c_a;
 				line_dsc.width = 8;
-				lv_canvas_draw_arc(canvas, 60, 60, 60, 360-90, ((360-90)*time.tm_hour/24), &line_dsc);
+				lv_canvas_draw_arc(canvas, 60, 60, 60, 360-90, time.tm_hour >= 0 && time.tm_hour <=6 ? ((360)*time.tm_hour)/24 + 270 : ((360)*time.tm_hour)/24 + -90, &line_dsc);
 				line_dsc.color=c_b;
 				line_dsc.width = 6;
-				lv_canvas_draw_arc(canvas, 60, 60, 50, 360-90, ((360-90)*time.tm_min)/60, &line_dsc);
+				lv_canvas_draw_arc(canvas, 60, 60, 50, 360-90, time.tm_min >= 0 && time.tm_min <=15 ? ((360)*time.tm_min)/60 + 270 : ((360)*time.tm_min)/60 + -90, &line_dsc);
 				line_dsc.color=c_c;
 				line_dsc.width = 4;
-				lv_canvas_draw_arc(canvas, 60, 60, 42, 360-90, ((360-90)*time.tm_sec)/60, &line_dsc);
+				lv_canvas_draw_arc(canvas, 60, 60, 42, 360-90, time.tm_sec >= 0 && time.tm_sec <=15 ? ((360)*time.tm_sec)/60 + 270 : ((360)*time.tm_sec)/60 + -90, &line_dsc);
 			}
 		}
-		else if (received_smphr == gui_smphr){
+		else if (received_member == gui_smphr){
 			//SW_SafePrint(&UART_Jeton, "#SM Display update.\n");
 			xSemaphoreTake(gui_smphr,0);
 			lv_task_handler();
-		}else if (received_smphr == North_DirQ){
-				if(xQueueReceive(North_DirQ, &North_Dir,100)== pdPASS){
-					SW_SafePrint(&UART_Jeton, "#SM Received North_DirQ : %f.\n",North_Dir);
-					uint16_t deg = (uint16_t)North_Dir;
-					double x = cos(deg_to_rad(deg-90))*COMPASS_RADIUS+155;
-					double y = sin(deg_to_rad(deg-90))*COMPASS_RADIUS+120;
-					lv_obj_set_pos(ellipse_img, x, y);
-					sprintf(deg_buf, "%u°", deg);
-					lv_label_set_text(compass_lbl, deg_buf);
-				}
-		}else if(received_smphr == StepsQ){
-//			if(xQueueReceive(StepsQ, &steps, 100)== pdPASS){
-//				sprintf(step_buf, "%u", steps.CurrentSteps);
-//				lv_label_set_text(steps_lbl, step_buf);
-//			}
-		}else if(received_smphr == WeatherQ){
-//			if(xQueueReceive(WeatherQ, &weather__, 200)== pdPASS){
-//				SW_SafePrint(&UART_Jeton, "#SM Received North_DirQ : %f.\n",North_Dir);
-//				sprintf(temp_buf, "%5.1f°C", weather__.Temperature);
+		}else if (received_member == North_DirQ){
+			if(xQueueReceive(North_DirQ, &North_Dir,100)== pdPASS){
+				SW_SafePrint(&UART_Jeton, "#SM Received North_DirQ : %f.\n",North_Dir);
+				uint16_t deg = (uint16_t)North_Dir;
+				double x = cos(deg_to_rad(deg-90))*COMPASS_RADIUS+155;
+				double y = sin(deg_to_rad(deg-90))*COMPASS_RADIUS+120;
+				lv_obj_set_pos(ellipse_img, x, y);
+				sprintf(deg_buf, "%u°", deg);
+				lv_label_set_text(compass_lbl, deg_buf);
+			}
+		}else if(received_member == StepsQ){
+			if(xQueueReceive(StepsQ, &steps, 100)== pdPASS){
+				sprintf(step_buf, "%u", steps.CurrentSteps);
+				lv_label_set_text(steps_lbl, step_buf);
+			}
+		}else if(received_member == WeatherQ){
+			if(xQueueReceive(WeatherQ, &weather__, 100)== pdPASS){
+				SW_SafePrint(&UART_Jeton, "#SM Received WeatherQ :temp = %f, hum = %f, press = %f.\n",weather__.Temperature,weather__.Humdity,weather__.Pressure);
+				//Not working for god knows why.
+//				sprintf(temp_buf,"%f°C", weather__.Temperature);
 //				lv_label_set_text(temp_lbl, temp_buf);
-//				sprintf(hum_buf, "%5.1f%%", weather__.Humdity);
+//				sprintf(hum_buf,"%f", weather__.Humdity);
 //				lv_label_set_text(hum_lbl, hum_buf);
-//				sprintf(press_buf, "%5.1fhPa", weather__.Pressure);
+//				sprintf(press_buf,"%fhPa", weather__.Pressure);
 //				lv_label_set_text(press_lbl, press_buf);
-//			}
+			}
 		}
 	}
 }
@@ -805,11 +816,11 @@ void app_main(void)
 	vTaskDelay(2000/portTICK_PERIOD_MS);
 	xTaskCreate(StepCounter, "StepCounter", 10000, NULL, 1, &StepCounter_Handler);
 	//vTaskSuspend(StepCounter_Handler);
-	xTaskCreate(Lsm6dso_TASK, "Lsm6dso_TASK", 10000, NULL, 2, &Lsm6dso_TASK_Handler);
-	//vTaskSuspend(Lsm6dso_TASK_Handler);
-	xTaskCreate(LIS2MDL_TASK, "LIS2MDL_TASK", 10000, NULL, 1, &LIS2MDL_TASK_Handler);
+	xTaskCreate(Lsm6dso_TASK, "Lsm6dso_TASK", 10000, NULL, 3, &Lsm6dso_TASK_Handler);
+	vTaskSuspend(Lsm6dso_TASK_Handler);
+	xTaskCreate(LIS2MDL_TASK, "LIS2MDL_TASK", 10000, NULL, 2, &LIS2MDL_TASK_Handler);
 	vTaskSuspend(LIS2MDL_TASK_Handler);
-	xTaskCreate(Weather_TASK, "Weather_TASK", 10000, NULL, 1, &Weather_TASK_Handler);
+	xTaskCreate(Weather_TASK, "Weather_TASK", 10000, NULL, 2, &Weather_TASK_Handler);
 	vTaskSuspend(Weather_TASK_Handler);
 	/**************LSM6DSO_INT1 ISR / Wake-up Trigger *****************/
 	gpio_set_direction(LSM6DSO_INT1, GPIO_MODE_INPUT);
