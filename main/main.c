@@ -55,11 +55,11 @@
 added to the queue set. */
 #define COMBINED_LENGTH 18
 
-//#define EXAMPLE_ESP_WIFI_SSID      "HUAWEI Y6p"
-//#define EXAMPLE_ESP_WIFI_PASS      "majdi123"
+#define EXAMPLE_ESP_WIFI_SSID      "HUAWEI Y6p"
+#define EXAMPLE_ESP_WIFI_PASS      "majdi123"
 
-#define EXAMPLE_ESP_WIFI_SSID      "MG-Pxl"
-#define EXAMPLE_ESP_WIFI_PASS      "87654321"
+//#define EXAMPLE_ESP_WIFI_SSID      "MG-Pxl"
+//#define EXAMPLE_ESP_WIFI_PASS      "87654321"
 
 /***************Thread Safe Print****************/
 esp_err_t SW_SafePrint(SemaphoreHandle_t* Jeton,const char* fmt, ...);
@@ -233,6 +233,7 @@ void Lsm6dso_TASK(void * pvParameters ){
 	};
 	esp_timer_create(&oneshot_timer_args, &oneshot_timer);
 	/**************One shot timer for entering sleep mode*************/
+
 	lsm6dso_all_sources_t all_source;
 	for(;;){
 		lsm6dso_all_sources_get(&Lsm6dso_dev_ctx, &all_source);
