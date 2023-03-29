@@ -266,15 +266,13 @@ Weather SW_Get_Weather(stmdev_ctx_t hts221_dev_ctx,stmdev_ctx_t lps22hh_dev_ctx)
 		memset(&data_raw_humidity, 0x00, sizeof(int16_t));
 		hts221_humidity_raw_get(&hts221_dev_ctx, &data_raw_humidity);
 		humidity_perc = linear_interpolation(&lin_hum, data_raw_humidity);
-	}
-	if (humidity_perc < 0) {
-		humidity_perc = 0;
-		weather.Humdity=humidity_perc;
-	}
-
-	if (humidity_perc > 100) {
-		humidity_perc = 100;
-		weather.Humdity=humidity_perc;
+		if (humidity_perc < 0) {
+			humidity_perc = 0;
+			weather.Humdity=humidity_perc;
+		}else if (humidity_perc > 100) {
+			humidity_perc = 100;
+			weather.Humdity=humidity_perc;
+		}
 	}
 	if (reg_hts221.status_reg.t_da) {
 		/* Read temperature data */
