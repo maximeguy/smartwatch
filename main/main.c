@@ -348,27 +348,28 @@ void create_screen(uint8_t screen_id){
 
 		lv_obj_t * temp_icon = lv_img_create(weather_screen, NULL);
 		lv_img_set_src(temp_icon,&temperature);
-		lv_obj_align(temp_icon, NULL, LV_ALIGN_CENTER, 100, -20);
+		lv_obj_align(temp_icon, NULL, LV_ALIGN_CENTER, -100, -20);
 
 		lv_obj_t * temp_lbl =  lv_label_create(weather_screen, NULL);
-		lv_label_set_text(temp_lbl, "12.5°C");
-		lv_obj_align(temp_lbl, NULL, LV_ALIGN_CENTER, 100, 15);
+		lv_label_set_text(temp_lbl, "20.4°C");
+		lv_obj_align(temp_lbl, NULL, LV_ALIGN_CENTER, -100, 15);
 
 		lv_obj_t * hum_icon = lv_img_create(weather_screen, NULL);
 		lv_img_set_src(hum_icon,&humidity);
-		lv_obj_align(hum_icon, NULL, LV_ALIGN_CENTER, -100, -20);
+		lv_obj_align(hum_icon, NULL, LV_ALIGN_CENTER, 100, -20);
 
 		lv_obj_t * hum_lbl =  lv_label_create(weather_screen, NULL);
 		lv_label_set_text(hum_lbl, "55%");
-		lv_obj_align(hum_lbl, NULL, LV_ALIGN_CENTER, -100, 15);
+		lv_obj_align(hum_lbl, NULL, LV_ALIGN_CENTER, 100, 15);
 
 		lv_obj_t * press_icon = lv_img_create(weather_screen, NULL);
 		lv_img_set_src(press_icon,&pressure);
 		lv_obj_align(press_icon, NULL, LV_ALIGN_CENTER, 0, 40);
 
 		lv_obj_t * press_lbl =  lv_label_create(weather_screen, NULL);
-		lv_label_set_text(press_lbl, "12.5°C");
+		lv_label_set_text(press_lbl, "1007hPa");
 		lv_obj_align(press_lbl, NULL, LV_ALIGN_CENTER, 0, 75);
+
 
 		screens[2] = weather_screen;
 
@@ -501,6 +502,10 @@ void state_machine()
 //				lv_label_set_text(hum_lbl, hum_buf);
 //				sprintf(press_buf,"%fhPa", weather__.Pressure);
 //				lv_label_set_text(press_lbl, press_buf);
+
+				lv_label_set_text_fmt(temp_lbl, "%f°C", weather__.Temperature);
+				lv_label_set_text_fmt(hum_lbl, "%f%%", weather__.Humdity);
+				lv_label_set_text_fmt(press_lbl, "%fhPa", weather__.Pressure);
 			}
 		}
 	}
