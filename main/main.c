@@ -278,7 +278,7 @@ void create_screen(uint8_t screen_id){
 		lv_obj_align(steps_icon, NULL, LV_ALIGN_CENTER, -30, 80);
 
 		steps_lbl = lv_label_create(main_screen, NULL);
-		lv_label_set_text(steps_lbl, "432");
+		lv_label_set_text(steps_lbl, "0");
 		lv_obj_align(steps_lbl, NULL, LV_LABEL_ALIGN_LEFT, 5, 80); // @suppress("Symbol is not resolved")
 
 		lv_draw_line_dsc_init(&line_dsc);
@@ -503,9 +503,9 @@ void state_machine()
 //				sprintf(press_buf,"%fhPa", weather__.Pressure);
 //				lv_label_set_text(press_lbl, press_buf);
 
-				lv_label_set_text_fmt(temp_lbl, "%f°C", weather__.Temperature);
-				lv_label_set_text_fmt(hum_lbl, "%f%%", weather__.Humdity);
-				lv_label_set_text_fmt(press_lbl, "%fhPa", weather__.Pressure);
+//				lv_label_set_text_fmt(temp_lbl, "%f°C", weather__.Temperature);
+//				lv_label_set_text_fmt(hum_lbl, "%f%%", weather__.Humdity);
+//				lv_label_set_text_fmt(press_lbl, "%fhPa", weather__.Pressure);
 			}
 		}
 	}
